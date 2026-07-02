@@ -1,0 +1,293 @@
+:root {
+  --readmd-font-size: 16px;
+}
+
+#readmd-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2147483647; /* Max z-index to stay on top */
+  overflow-y: auto;
+  display: none;
+  padding: 7px;
+  box-sizing: border-box;
+  transition: background-color 0.3s, color 0.3s;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: var(--readmd-font-size);
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
+}
+
+#readmd-overlay.active {
+  display: block;
+}
+
+#readmd-content {
+  max-width: 100%; /* Allow it to fill the window */
+  padding: 0 0rem; /* Add some padding on the sides */
+  margin: 0 auto;
+  line-height: 1.6;
+  padding-bottom: 0;
+  box-sizing: border-box;
+}
+
+/* Typography */
+#readmd-content h1, 
+#readmd-content h2, 
+#readmd-content h3, 
+#readmd-content h4, 
+#readmd-content h5, 
+#readmd-content h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  line-height: 1.2;
+}
+
+#readmd-content p {
+  margin-bottom: 1em;
+}
+
+#readmd-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+#readmd-content svg {
+  display: inline-block;
+  visibility: visible;
+  opacity: 1;
+  overflow: visible;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Custom scrollbar: subtle by default, visible on interaction */
+#readmd-overlay::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+#readmd-overlay::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#readmd-overlay::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+
+#readmd-overlay.is-scrolling {
+  scrollbar-color: var(--readmd-scrollbar-thumb) transparent;
+}
+
+#readmd-overlay.is-scrolling::-webkit-scrollbar-thumb {
+  background-color: var(--readmd-scrollbar-thumb);
+}
+
+#readmd-overlay.is-scrolling::-webkit-scrollbar-thumb:hover {
+  background-color: var(--readmd-scrollbar-thumb-hover);
+}
+
+/* Themes */
+#readmd-overlay[data-theme="light"] {
+  background-color: #fbfbf9;
+  color: #333333;
+  --readmd-scrollbar-thumb: rgba(51, 51, 51, 0.28);
+  --readmd-scrollbar-thumb-hover: rgba(51, 51, 51, 0.42);
+}
+
+#readmd-overlay[data-theme="yellow"] {
+  background-color: #fbf0d9;
+  color: #5f4b32;
+  --readmd-scrollbar-thumb: rgba(95, 75, 50, 0.28);
+  --readmd-scrollbar-thumb-hover: rgba(95, 75, 50, 0.42);
+}
+
+#readmd-overlay[data-theme="green"] {
+  background-color: #cce8cf;
+  color: #333333;
+  --readmd-scrollbar-thumb: rgba(51, 51, 51, 0.28);
+  --readmd-scrollbar-thumb-hover: rgba(51, 51, 51, 0.42);
+}
+
+#readmd-overlay[data-theme="purple"] {
+  background-color: #efe9fb;
+  color: #3f3558;
+  --readmd-scrollbar-thumb: rgba(63, 53, 88, 0.3);
+  --readmd-scrollbar-thumb-hover: rgba(63, 53, 88, 0.46);
+}
+
+#readmd-overlay[data-theme="gray"] {
+  background-color: #f1f3f5;
+  color: #2f343b;
+  --readmd-scrollbar-thumb: rgba(47, 52, 59, 0.28);
+  --readmd-scrollbar-thumb-hover: rgba(47, 52, 59, 0.44);
+}
+
+#readmd-overlay[data-theme="blue"] {
+  background-color: #eaf4ff;
+  color: #243b55;
+  --readmd-scrollbar-thumb: rgba(36, 59, 85, 0.3);
+  --readmd-scrollbar-thumb-hover: rgba(36, 59, 85, 0.46);
+}
+
+#readmd-overlay[data-theme="dark"] {
+  background-color: #1e1e1e;
+  color: #cccccc;
+  --readmd-scrollbar-thumb: rgba(204, 204, 204, 0.26);
+  --readmd-scrollbar-thumb-hover: rgba(204, 204, 204, 0.45);
+}
+
+#readmd-overlay[data-theme="dark-purple"] {
+  background-color: #341664;
+  color: #edecefe7;
+  --readmd-scrollbar-thumb: rgba(221, 211, 238, 0.28);
+  --readmd-scrollbar-thumb-hover: rgba(221, 211, 238, 0.46);
+}
+
+#readmd-overlay[data-theme="dark-gray"] {
+  background-color: #60615f;
+  color: #c2c4c6;
+  --readmd-scrollbar-thumb: rgba(214, 220, 227, 0.28);
+  --readmd-scrollbar-thumb-hover: rgba(214, 220, 227, 0.46);
+}
+
+#readmd-overlay[data-theme="dark-blue"] {
+  background-color: #315a99;
+  color: #a3c2e7;
+  --readmd-scrollbar-thumb: rgba(215, 231, 251, 0.28);
+  --readmd-scrollbar-thumb-hover: rgba(215, 231, 251, 0.46);
+}
+
+/* Layouts */
+#readmd-overlay[data-layout="single"] #readmd-content {
+  max-width: 100%; /* Fill the window */
+}
+
+#readmd-overlay[data-layout="single"] {
+  padding-right: 0;
+}
+
+#readmd-overlay[data-layout="single"] pre {
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: auto;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+#readmd-overlay[data-layout="double"] {
+  /* For double layout, we want the overlay itself to handle horizontal scrolling if needed */
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+#readmd-overlay[data-layout="double"] #readmd-content {
+  max-width: 100%;
+  height: calc(100vh - 14px); /* Match overlay vertical padding (7px top + 7px bottom) */
+  column-width: calc(50vw - 6rem); /* Each column takes roughly half the screen */
+  column-gap: 4rem;
+  column-rule: 1px solid rgba(128, 128, 128, 0.2);
+  column-fill: auto; /* Fill columns sequentially */
+  padding-bottom: 0; /* Remove bottom padding to prevent extra scrolling */
+}
+
+/* Ensure elements don't break awkwardly across columns */
+#readmd-overlay[data-layout="double"] h1,
+#readmd-overlay[data-layout="double"] h2,
+#readmd-overlay[data-layout="double"] h3,
+#readmd-overlay[data-layout="double"] img,
+#readmd-overlay[data-layout="double"] pre,
+#readmd-overlay[data-layout="double"] blockquote {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Code blocks optimization */
+#readmd-overlay pre, 
+#readmd-overlay code {
+  font-family: "Fira Code", Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+  border-radius: 4px;
+}
+
+#readmd-overlay code {
+  padding: 0.2em 0.4em;
+  background-color: rgba(128, 128, 128, 0.1);
+}
+
+#readmd-overlay pre {
+  padding: 1rem;
+  overflow-x: auto;
+  overflow-y: auto; /* Allow vertical scrolling if code is too tall */
+  max-height: 90vh; /* Prevent code block from taking up the entire column height */
+  background-color: rgba(128, 128, 128, 0.05);
+  border: 1px solid rgba(128, 128, 128, 0.1);
+  break-inside: avoid; /* Prevent breaking in double layout */
+  page-break-inside: avoid;
+  max-width: 100%; /* Ensure it doesn't overflow its column */
+  box-sizing: border-box;
+  text-indent: 0 !important;
+  margin-left: 0 !important;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+/* Fix for code blocks in multi-column layout */
+#readmd-overlay[data-layout="double"] pre {
+  /* In CSS columns, overflow-x: auto on a child element can sometimes cause the column to expand 
+     or the content to be clipped. We force it to respect the column width. */
+  width: 100%;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+  overflow-x: auto;
+}
+
+#readmd-overlay pre code {
+  padding: 0;
+  background-color: transparent;
+  white-space: pre;
+}
+
+#readmd-overlay pre *,
+#readmd-overlay code * {
+  text-indent: 0 !important;
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+  white-space: inherit !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+#readmd-overlay pre p,
+#readmd-overlay pre div,
+#readmd-overlay pre li {
+  margin: 0 !important;
+}
+
+/* Dark theme specific code block adjustments */
+#readmd-overlay[data-theme="dark"] pre,
+#readmd-overlay[data-theme="dark"] code,
+#readmd-overlay[data-theme="dark-purple"] pre,
+#readmd-overlay[data-theme="dark-purple"] code,
+#readmd-overlay[data-theme="dark-gray"] pre,
+#readmd-overlay[data-theme="dark-gray"] code,
+#readmd-overlay[data-theme="dark-blue"] pre,
+#readmd-overlay[data-theme="dark-blue"] code {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+#readmd-overlay[data-theme="dark"] pre,
+#readmd-overlay[data-theme="dark-purple"] pre,
+#readmd-overlay[data-theme="dark-gray"] pre,
+#readmd-overlay[data-theme="dark-blue"] pre {
+  border-color: rgba(255, 255, 255, 0.1);
+}

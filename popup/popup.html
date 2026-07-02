@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Readmd Settings</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Readmd</h2>
+    
+    <div class="setting-group">
+      <label for="theme">Theme</label>
+      <select id="theme">
+        <optgroup label="Light Themes">
+          <option value="light">Light</option>
+          <option value="yellow">Eye-care Yellow</option>
+          <option value="green">Bean Green</option>
+          <option value="purple">Lavender Purple</option>
+          <option value="gray">Mist Gray</option>
+          <option value="blue">Ocean Blue</option>
+        </optgroup>
+        <optgroup label="Dark Themes">
+          <option value="dark">Dark</option>
+          <option value="dark-purple">Dark Purple</option>
+          <option value="dark-gray">Dark Gray</option>
+          <option value="dark-blue">Dark Blue</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <div class="setting-group">
+      <label for="layout">Layout</label>
+      <select id="layout">
+        <option value="single">Single Page</option>
+        <option value="double">Double Page</option>
+      </select>
+    </div>
+
+    <div class="setting-group">
+      <label for="fontSize">Font Size</label>
+      <input type="range" id="fontSize" min="14" max="24" value="16">
+      <span id="fontSizeValue">16px</span>
+    </div>
+
+    <div class="button-group">
+      <button id="toggleReader" class="primary-btn">Toggle Reader View</button>
+      <button id="exitReader" class="secondary-btn">Exit Reader View</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
