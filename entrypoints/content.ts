@@ -8,6 +8,10 @@ export default defineContentScript({
   main() {
     const readerMode = new ReaderMode();
     let annotateEngine: AnnotationEngine | null = null;
+    // Pending pen settings applied when engine initializes
+    let pendingPenColor: string | null = null;
+    let pendingPenSize: number | null = null;
+    let pendingPenTool: string | null = null;
 
     function initOverlay() {
       readerMode.initOverlay();
@@ -116,8 +120,13 @@ export default defineContentScript({
             annotateEngine.hide();
             return { status: 'ok', annotateMode: 'off' };
           } else {
-            annotateEngine.show().then(() => {
-              // async show completed
+            // Apply stored pen settings when entering annotation mode
+            const tool = pendingPenTool || 'pen';
+            annotateEngine.show(tool, pendingPenColor || undefined, pendingPenSize || undefined).then(() => {
+              // Clear pending settings after applying
+              pendingPenColor = null;
+              pendingPenSize = null;
+              pendingPenTool = null;
             }).catch((err: Error) => {
               console.error('Failed to enter annotation mode:', err);
             });
@@ -133,6 +142,7 @@ export default defineContentScript({
         }
 
         case 'updatePenColor': {
+          pendingPenColor = request.color;
           if (annotateEngine) {
             annotateEngine.setColor(request.color);
           }
@@ -140,6 +150,7 @@ export default defineContentScript({
         }
 
         case 'updatePenSize': {
+          pendingPenSize = request.size;
           if (annotateEngine) {
             annotateEngine.setSize(request.size);
           }
@@ -147,6 +158,7 @@ export default defineContentScript({
         }
 
         case 'updatePenTool': {
+          pendingPenTool = request.tool;
           if (annotateEngine) {
             annotateEngine.setTool(request.tool);
           }

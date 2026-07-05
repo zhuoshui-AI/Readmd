@@ -19,6 +19,7 @@ const MAX_UNDO = 50;
 interface UndoSnapshot {
   canvasData: ImageData;
   textState: Array<{ x: number; y: number; text: string; noteId: string }>;
+  canvasTextNotes?: CanvasTextNote[];
   type?: string;
 }
 
@@ -342,7 +343,6 @@ export class AnnotationEngine {
 
   private _redrawCanvasModeTexts(): void {
     if (!this._annotCanvas) return;
-    const dpr = this._canvasModeDPR();
     const ctx = this._annotCanvas.getContext('2d')!;
     this._canvasModeTextNotes.forEach((n) => {
       ctx.save();
@@ -351,7 +351,8 @@ export class AnnotationEngine {
       const lines = (n.text || '').split('\n');
       const lineHeight = 20;
       lines.forEach((line, i) => {
-        ctx.fillText(line, n.x * dpr, n.y * dpr + (i + 1) * lineHeight);
+        // ctx is already scaled by dpr, so use CSS coordinates directly
+        ctx.fillText(line, n.x, n.y + (i + 1) * lineHeight);
       });
       ctx.restore();
     });
@@ -386,7 +387,8 @@ export class AnnotationEngine {
         const lines = text.split('\n');
         const lineHeight = 20;
         lines.forEach((line, i) => {
-          ctx.fillText(line, x * dpr, y * dpr + (i + 1) * lineHeight);
+          // ctx is already scaled by dpr, so use CSS coordinates directly
+          ctx.fillText(line, x, y + (i + 1) * lineHeight);
         });
         ctx.restore();
       }
@@ -437,11 +439,11 @@ export class AnnotationEngine {
   private _getCanvasPos(e: PointerEvent): { x: number; y: number } {
     const activeCanvas = this.mode === 'canvas' ? this._annotCanvas : this.canvas;
     const rect = activeCanvas!.getBoundingClientRect();
-    const scrollLeft = this.overlay.scrollLeft;
-    const scrollTop = this.overlay.scrollTop;
+    // rect is already in viewport coordinates — clientX/Y minus rect position
+    // gives canvas-relative coordinates directly (scroll is already factored in)
     return {
-      x: e.clientX - rect.left + scrollLeft,
-      y: e.clientY - rect.top + scrollTop,
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
     };
   }
 
@@ -649,6 +651,8 @@ export class AnnotationEngine {
         text: n.el.textContent || '',
         noteId: n.el.dataset.noteId || '',
       })),
+      // Also snapshot canvas-mode text notes so undo/redo tracks them
+      canvasTextNotes: this._canvasModeTextNotes.map((n) => ({ ...n })),
       ...meta,
     };
 
@@ -671,6 +675,7 @@ export class AnnotationEngine {
         text: n.el.textContent || '',
         noteId: n.el.dataset.noteId || '',
       })),
+      canvasTextNotes: this._canvasModeTextNotes.map((n) => ({ ...n })),
       type: 'undo-point',
     };
     this.redoStack.push(current);
@@ -691,6 +696,7 @@ export class AnnotationEngine {
         text: n.el.textContent || '',
         noteId: n.el.dataset.noteId || '',
       })),
+      canvasTextNotes: this._canvasModeTextNotes.map((n) => ({ ...n })),
       type: 'redo-point',
     };
     this.undoStack.push(current);
@@ -705,6 +711,7 @@ export class AnnotationEngine {
       this.ctx.putImageData(snapshot.canvasData, 0, 0);
     }
 
+    // Restore DOM text notes
     this.textNotes.forEach((n) => n.el.remove());
     this.textNotes = [];
 
@@ -732,6 +739,9 @@ export class AnnotationEngine {
         this.textNotes.push({ el: note, x: ts.x, y: ts.y, text: ts.text });
       });
     }
+
+    // Restore canvas-mode text notes
+    this._canvasModeTextNotes = (snapshot.canvasTextNotes || []).map((n) => ({ ...n }));
   }
 
   // ── Clear ──────────────────────────────────
@@ -942,11 +952,13 @@ export class AnnotationEngine {
     }
   }
 
-  async show(): Promise<void> {
+  async show(initialTool: string = 'pen', initialColor?: string, initialSize?: number): Promise<void> {
     if (this._enteringCanvasMode) return;
     this._enteringCanvasMode = true;
     this.toolbar.classList.remove('hidden');
-    this.tool = 'pen';
+    if (initialColor) this.color = initialColor;
+    if (initialSize) this.lineWidth = initialSize;
+    this.tool = initialTool as 'pen' | 'eraser' | 'text' | 'none';
     this._updateToolbarActive();
     await this.enterCanvasMode();
     this._enteringCanvasMode = false;
