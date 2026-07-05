@@ -1,0 +1,269 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  width: 320px;
+  padding: 16px;
+  background-color: #f9f9f9;
+  color: #333;
+  font-size: 13px;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  text-align: center;
+  color: #2c3e50;
+  padding-bottom: 4px;
+}
+
+.section-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #555;
+}
+
+select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-row input[type="range"] {
+  flex: 1;
+}
+
+#fontSizeValue {
+  font-size: 0.78rem;
+  color: #666;
+  min-width: 32px;
+  text-align: right;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #e8e8e8;
+  margin: 2px 0;
+}
+
+/* ── Buttons ── */
+.button-row {
+  display: flex;
+  gap: 6px;
+}
+
+.button-row.export-row {
+  flex-direction: column;
+}
+
+.primary-btn {
+  flex: 1;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 0.15s;
+}
+
+.primary-btn:hover {
+  background-color: #2980b9;
+}
+
+.secondary-btn {
+  flex: 1;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 0.15s;
+}
+
+.secondary-btn:hover {
+  background-color: #c0392b;
+}
+
+.action-btn {
+  flex: 1;
+  background-color: #f0f0f0;
+  color: #555;
+  border: 1px solid #ddd;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.action-btn:hover {
+  background-color: #e8e8e8;
+}
+
+.export-html-btn {
+  flex: 1;
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 0.15s;
+}
+
+.export-html-btn:hover {
+  background-color: #219a52;
+}
+
+.export-pdf-btn {
+  flex: 1;
+  background-color: #8e44ad;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 0.15s;
+}
+
+.export-pdf-btn:hover {
+  background-color: #7d3c98;
+}
+
+/* ── Color Swatches ── */
+.color-swatches {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.color-swatch.active {
+  border-color: #333;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+}
+
+.color-swatch[data-color="#ecf0f1"] {
+  border: 2px solid #ccc;
+}
+
+/* ── Size Buttons ── */
+.size-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.size-btn {
+  flex: 1;
+  padding: 6px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #555;
+  transition: all 0.15s;
+}
+
+.size-btn:hover {
+  background: #f0f0f0;
+}
+
+.size-btn.active {
+  background: #e8f0fe;
+  border-color: #3498db;
+  color: #3498db;
+}
+
+/* ── Tool Toggles ── */
+.tool-toggles {
+  display: flex;
+  gap: 4px;
+}
+
+.tool-btn {
+  flex: 1;
+  padding: 6px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #555;
+  transition: all 0.15s;
+}
+
+.tool-btn:hover {
+  background: #f0f0f0;
+}
+
+.tool-btn.active {
+  background: #e8f0fe;
+  border-color: #3498db;
+  color: #3498db;
+}

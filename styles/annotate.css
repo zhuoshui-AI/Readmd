@@ -100,7 +100,6 @@
   box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
 }
 
-/* White swatch needs a visible border always */
 .annotate-color-swatch[data-color="#ecf0f1"] {
   border: 2px solid #ccc;
 }

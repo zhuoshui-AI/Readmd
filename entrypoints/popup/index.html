@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Readmd</title>
+</head>
+<body>
+  <div class="container">
+    <h2>📖 Readmd</h2>
+
+    <!-- ── Reader Controls ── -->
+    <div class="section">
+      <div class="section-title">阅读控制</div>
+      <div class="button-row">
+        <button id="toggleReader" class="primary-btn">开启阅读模式</button>
+        <button id="exitReader" class="secondary-btn">退出阅读</button>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- ── Annotation Controls ── -->
+    <div class="section">
+      <div class="section-title">涂鸦标注</div>
+      <div class="button-row">
+        <button id="toggleAnnotate" class="primary-btn">涂鸦开关</button>
+        <button id="undoAnnotate" class="action-btn">↩ 撤销</button>
+      </div>
+
+      <div class="setting-group">
+        <label>画笔颜色</label>
+        <div class="color-swatches" id="colorSwatches">
+          <span class="color-swatch active" data-color="#e74c3c" style="background:#e74c3c"></span>
+          <span class="color-swatch" data-color="#e67e22" style="background:#e67e22"></span>
+          <span class="color-swatch" data-color="#f1c40f" style="background:#f1c40f"></span>
+          <span class="color-swatch" data-color="#2ecc71" style="background:#2ecc71"></span>
+          <span class="color-swatch" data-color="#3498db" style="background:#3498db"></span>
+          <span class="color-swatch" data-color="#9b59b6" style="background:#9b59b6"></span>
+          <span class="color-swatch" data-color="#2c3e50" style="background:#2c3e50"></span>
+          <span class="color-swatch" data-color="#ecf0f1" style="background:#ecf0f1"></span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label>画笔粗细</label>
+        <div class="size-btns" id="sizeBtns">
+          <button class="size-btn" data-size="2">S</button>
+          <button class="size-btn active" data-size="4">M</button>
+          <button class="size-btn" data-size="8">L</button>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label>工具</label>
+        <div class="tool-toggles" id="toolToggles">
+          <button class="tool-btn active" data-tool="pen">✏️ 画笔</button>
+          <button class="tool-btn" data-tool="eraser">🧹 橡皮</button>
+        </div>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- ── Export ── -->
+    <div class="section">
+      <div class="section-title">导出</div>
+      <div class="button-row export-row">
+        <button id="exportHTML" class="export-html-btn">📄 导出 HTML</button>
+        <button id="exportPDF" class="export-pdf-btn">📑 导出 PDF</button>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- ── Reading Settings ── -->
+    <div class="section">
+      <div class="section-title">阅读设置</div>
+
+      <div class="setting-group">
+        <label for="theme">主题</label>
+        <select id="theme">
+          <optgroup label="浅色主题">
+            <option value="light">浅色</option>
+            <option value="yellow">护眼黄</option>
+            <option value="green">豆沙绿</option>
+            <option value="purple">薰衣草紫</option>
+            <option value="gray">薄雾灰</option>
+            <option value="blue">海洋蓝</option>
+          </optgroup>
+          <optgroup label="深色主题">
+            <option value="dark">深色</option>
+            <option value="dark-purple">深紫</option>
+            <option value="dark-gray">深灰</option>
+            <option value="dark-blue">深蓝</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <div class="setting-group">
+        <label for="layout">布局</label>
+        <select id="layout">
+          <option value="single">单页</option>
+          <option value="double">双页</option>
+        </select>
+      </div>
+
+      <div class="setting-group">
+        <label for="fontSize">字号</label>
+        <div class="range-row">
+          <input type="range" id="fontSize" min="14" max="24" value="16">
+          <span id="fontSizeValue">16px</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

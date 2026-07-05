@@ -1,6 +1,24 @@
 {
+  "name": "readmd",
+  "version": "1.0.0",
+  "description": "Immersive reading experience for Markdown-style web documents",
+  "private": true,
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox"
+  },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "html2canvas": "^1.4.1",
-    "jspdf": "^4.2.0"
+    "jspdf": "^2.5.2"
+  },
+  "devDependencies": {
+    "@wxt-dev/storage": "^1.0.2",
+    "typescript": "^5.7.3",
+    "wxt": "^0.19.29"
   }
 }

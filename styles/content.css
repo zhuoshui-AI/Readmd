@@ -8,7 +8,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 2147483647; /* Max z-index to stay on top */
+  z-index: 2147483647;
   overflow-y: auto;
   display: none;
   padding: 7px;
@@ -26,8 +26,8 @@
 }
 
 #readmd-content {
-  max-width: 100%; /* Allow it to fill the window */
-  padding: 0 0rem; /* Add some padding on the sides */
+  max-width: 100%;
+  padding: 0 0rem;
   margin: 0 auto;
   line-height: 1.6;
   padding-bottom: 0;
@@ -35,11 +35,11 @@
 }
 
 /* Typography */
-#readmd-content h1, 
-#readmd-content h2, 
-#readmd-content h3, 
-#readmd-content h4, 
-#readmd-content h5, 
+#readmd-content h1,
+#readmd-content h2,
+#readmd-content h3,
+#readmd-content h4,
+#readmd-content h5,
 #readmd-content h6 {
   margin-top: 1.5em;
   margin-bottom: 0.5em;
@@ -65,7 +65,7 @@
   height: auto;
 }
 
-/* Custom scrollbar: subtle by default, visible on interaction */
+/* Custom scrollbar */
 #readmd-overlay::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -95,7 +95,7 @@
   background-color: var(--readmd-scrollbar-thumb-hover);
 }
 
-/* Themes */
+/* ── Themes ── */
 #readmd-overlay[data-theme="light"] {
   background-color: #fbfbf9;
   color: #333333;
@@ -166,9 +166,9 @@
   --readmd-scrollbar-thumb-hover: rgba(215, 231, 251, 0.46);
 }
 
-/* Layouts */
+/* ── Layouts ── */
 #readmd-overlay[data-layout="single"] #readmd-content {
-  max-width: 100%; /* Fill the window */
+  max-width: 100%;
 }
 
 #readmd-overlay[data-layout="single"] {
@@ -185,22 +185,20 @@
 }
 
 #readmd-overlay[data-layout="double"] {
-  /* For double layout, we want the overlay itself to handle horizontal scrolling if needed */
   overflow-x: auto;
   overflow-y: hidden;
 }
 
 #readmd-overlay[data-layout="double"] #readmd-content {
   max-width: 100%;
-  height: calc(100vh - 14px); /* Match overlay vertical padding (7px top + 7px bottom) */
-  column-width: calc(50vw - 6rem); /* Each column takes roughly half the screen */
+  height: calc(100vh - 14px);
+  column-width: calc(50vw - 6rem);
   column-gap: 4rem;
   column-rule: 1px solid rgba(128, 128, 128, 0.2);
-  column-fill: auto; /* Fill columns sequentially */
-  padding-bottom: 0; /* Remove bottom padding to prevent extra scrolling */
+  column-fill: auto;
+  padding-bottom: 0;
 }
 
-/* Ensure elements don't break awkwardly across columns */
 #readmd-overlay[data-layout="double"] h1,
 #readmd-overlay[data-layout="double"] h2,
 #readmd-overlay[data-layout="double"] h3,
@@ -211,8 +209,8 @@
   page-break-inside: avoid;
 }
 
-/* Code blocks optimization */
-#readmd-overlay pre, 
+/* ── Code blocks ── */
+#readmd-overlay pre,
 #readmd-overlay code {
   font-family: "Fira Code", Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
   border-radius: 4px;
@@ -226,13 +224,13 @@
 #readmd-overlay pre {
   padding: 1rem;
   overflow-x: auto;
-  overflow-y: auto; /* Allow vertical scrolling if code is too tall */
-  max-height: 90vh; /* Prevent code block from taking up the entire column height */
+  overflow-y: auto;
+  max-height: 90vh;
   background-color: rgba(128, 128, 128, 0.05);
   border: 1px solid rgba(128, 128, 128, 0.1);
-  break-inside: avoid; /* Prevent breaking in double layout */
+  break-inside: avoid;
   page-break-inside: avoid;
-  max-width: 100%; /* Ensure it doesn't overflow its column */
+  max-width: 100%;
   box-sizing: border-box;
   text-indent: 0 !important;
   margin-left: 0 !important;
@@ -241,10 +239,7 @@
   word-break: normal;
 }
 
-/* Fix for code blocks in multi-column layout */
 #readmd-overlay[data-layout="double"] pre {
-  /* In CSS columns, overflow-x: auto on a child element can sometimes cause the column to expand 
-     or the content to be clipped. We force it to respect the column width. */
   width: 100%;
   white-space: pre;
   overflow-wrap: normal;
@@ -274,7 +269,7 @@
   margin: 0 !important;
 }
 
-/* Dark theme specific code block adjustments */
+/* Dark theme code blocks */
 #readmd-overlay[data-theme="dark"] pre,
 #readmd-overlay[data-theme="dark"] code,
 #readmd-overlay[data-theme="dark-purple"] pre,
@@ -285,6 +280,7 @@
 #readmd-overlay[data-theme="dark-blue"] code {
   background-color: rgba(255, 255, 255, 0.1);
 }
+
 #readmd-overlay[data-theme="dark"] pre,
 #readmd-overlay[data-theme="dark-purple"] pre,
 #readmd-overlay[data-theme="dark-gray"] pre,
