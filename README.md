@@ -3,6 +3,12 @@
 > A browser extension that transforms any web article into a clean, distraction-free reading experience — with full annotation, highlighting, and export capabilities.
 
 <p align="center">
+  <a href="https://zhuoshui-AI.github.io/readmd/">
+    <img src="https://img.shields.io/badge/🌐_Website-Readmd-blue?style=for-the-badge" alt="Project Website" />
+  </a>
+</p>
+
+<p align="center">
   <img src="public/icons/icon128.png" alt="Readmd Logo" width="128" />
 </p>
 
