@@ -45,6 +45,48 @@
   color: #222;
 }
 
+.annotate-cursor-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  color: #555;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.annotate-cursor-btn:hover {
+  background: #f0f0f0;
+  color: #222;
+}
+
+.annotate-cursor-btn.active {
+  background: #e8f0fe;
+  border-color: #3498db;
+  color: #3498db;
+}
+
+.annotate-cursor-btn[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11px;
+  background: #333;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
 .annotate-tool-btn.active {
   background: #e8f0fe;
   border-color: #3498db;
@@ -102,6 +144,88 @@
 
 .annotate-color-swatch[data-color="#ecf0f1"] {
   border: 2px solid #ccc;
+}
+
+/* ── Color Pick Group (dot + picker button) ── */
+.annotate-color-pick-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 2px;
+}
+
+.annotate-color-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #ccc;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.annotate-color-dot:hover {
+  transform: scale(1.15);
+}
+
+.annotate-color-pick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px dashed #bbb;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s;
+  padding: 0;
+  position: relative;
+}
+
+.annotate-color-pick-btn:hover {
+  background: #f0f0f0;
+  border-color: #3498db;
+}
+
+.annotate-color-pick-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ── Opacity Group ── */
+.annotate-opacity-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.annotate-opacity-label {
+  font-size: 10px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.annotate-opacity-slider {
+  width: 48px;
+  height: 4px;
+  cursor: pointer;
+  accent-color: #3498db;
+  flex-shrink: 0;
+}
+
+.annotate-opacity-val {
+  font-size: 10px;
+  color: #666;
+  min-width: 28px;
+  text-align: right;
+  flex-shrink: 0;
 }
 
 /* ── Size Buttons ── */

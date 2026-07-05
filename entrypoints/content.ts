@@ -1,6 +1,6 @@
 import { ReaderMode } from '../components/reader-mode';
 import { AnnotationEngine } from '../components/annotate-engine';
-import { theme, layout, fontSize, penColor, penSize, penTool } from '../components/storage';
+import { theme, layout, fontSize, penColor, penSize, penOpacity, penTool } from '../components/storage';
 import '../styles/content.css';
 
 export default defineContentScript({
@@ -11,6 +11,7 @@ export default defineContentScript({
     // Pending pen settings applied when engine initializes
     let pendingPenColor: string | null = null;
     let pendingPenSize: number | null = null;
+    let pendingPenOpacity: number | null = null;
     let pendingPenTool: string | null = null;
 
     function initOverlay() {
@@ -121,11 +122,16 @@ export default defineContentScript({
             return { status: 'ok', annotateMode: 'off' };
           } else {
             // Apply stored pen settings when entering annotation mode
-            const tool = pendingPenTool || 'pen';
-            annotateEngine.show(tool, pendingPenColor || undefined, pendingPenSize || undefined).then(() => {
+            // Use values from message first, then fall back to pending, then defaults
+            const tool = request.penTool || pendingPenTool || 'pen';
+            const color = request.penColor || pendingPenColor || undefined;
+            const size = request.penSize ?? pendingPenSize ?? undefined;
+            const opacity = request.penOpacity ?? pendingPenOpacity ?? undefined;
+            annotateEngine.show(tool, color, size, opacity).then(() => {
               // Clear pending settings after applying
               pendingPenColor = null;
               pendingPenSize = null;
+              pendingPenOpacity = null;
               pendingPenTool = null;
             }).catch((err: Error) => {
               console.error('Failed to enter annotation mode:', err);
@@ -153,6 +159,14 @@ export default defineContentScript({
           pendingPenSize = request.size;
           if (annotateEngine) {
             annotateEngine.setSize(request.size);
+          }
+          break;
+        }
+
+        case 'updatePenOpacity': {
+          pendingPenOpacity = request.opacity;
+          if (annotateEngine) {
+            annotateEngine.setOpacity(request.opacity);
           }
           break;
         }

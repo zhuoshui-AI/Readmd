@@ -4,14 +4,28 @@ import '../styles/annotate.css';
 // ── Constants ────────────────────────────────────
 
 const ANNOTATION_COLORS = [
-  '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71',
-  '#3498db', '#9b59b6', '#2c3e50', '#ecf0f1',
+  '#e74c3c99', '#e67e2299', '#f1c40f99', '#2ecc7199',
+  '#3498db99', '#9b59b699', '#2c3e5099', '#ecf0f199',
 ];
 
+/** Maps theme names to their background colors (from content.css) */
+const THEME_BG_COLORS: Record<string, string> = {
+  light: '#fbfbf9',
+  yellow: '#fbf0d9',
+  green: '#cce8cf',
+  purple: '#efe9fb',
+  gray: '#f1f3f5',
+  blue: '#eaf4ff',
+  dark: '#1e1e1e',
+  'dark-purple': '#341664',
+  'dark-gray': '#60615f',
+  'dark-blue': '#315a99',
+};
+
 const PEN_SIZES = [
-  { label: 'S', value: 2 },
-  { label: 'M', value: 4 },
-  { label: 'L', value: 8 },
+  { label: 'S', value: 4 },
+  { label: 'M', value: 8 },
+  { label: 'L', value: 16 },
 ];
 
 const MAX_UNDO = 50;
@@ -57,9 +71,13 @@ export class AnnotationEngine {
   tool: 'pen' | 'eraser' | 'text' | 'highlight' | 'none' = 'pen';
   color = ANNOTATION_COLORS[0];
   lineWidth = PEN_SIZES[1].value;
+  opacity = 1; // 0–1, applied to pen strokes
+  cursorMode: 'draw' | 'pan' = 'draw';
 
   private isDrawing = false;
   private lastPoint: { x: number; y: number } | null = null;
+  private isPanning = false;
+  private panStart: { x: number; y: number; scrollX: number; scrollY: number } | null = null;
 
   private undoStack: UndoSnapshot[] = [];
   private redoStack: UndoSnapshot[] = [];
@@ -136,15 +154,32 @@ export class AnnotationEngine {
         `<button class="annotate-size-btn${s.value === this.lineWidth ? ' active' : ''}" data-size="${s.value}" data-tooltip="${s.label}">${s.label}</button>`,
     ).join('');
 
+    const opacityPct = Math.round(this.opacity * 100);
+
     return `
       <button class="annotate-tool-btn active" data-tool="pen" data-tooltip="Pen (A)">✏️</button>
       <button class="annotate-tool-btn" data-tool="eraser" data-tooltip="Eraser (E)">🧹</button>
       <button class="annotate-tool-btn" data-tool="text" data-tooltip="Text (T)">💬</button>
       <button class="annotate-tool-btn" data-tool="highlight" data-tooltip="Highlight (H)">🖍️</button>
       <span class="annotate-separator"></span>
+      <button class="annotate-cursor-btn active" data-action="toggleCursor" data-tooltip="Draw (D)">✚</button>
+      <span class="annotate-separator"></span>
       <div class="annotate-colors">${colorSwatches}</div>
+      <div class="annotate-color-pick-group">
+        <span class="annotate-color-dot" style="background:${this.color};opacity:${this.opacity}"></span>
+        <label class="annotate-color-pick-btn" data-tooltip="取色盘">
+          🎨
+          <input type="color" class="annotate-color-pick-input" value="${this.color}">
+        </label>
+      </div>
       <span class="annotate-separator"></span>
       <div class="annotate-sizes">${sizeBtns}</div>
+      <span class="annotate-separator"></span>
+      <div class="annotate-opacity-group">
+        <span class="annotate-opacity-label">透明</span>
+        <input type="range" class="annotate-opacity-slider" min="10" max="100" value="${opacityPct}" data-tooltip="不透明度">
+        <span class="annotate-opacity-val">${opacityPct}%</span>
+      </div>
       <span class="annotate-separator"></span>
       <button class="annotate-action-btn" data-action="undo" data-tooltip="Undo (Ctrl+Z)" disabled>↩</button>
       <button class="annotate-action-btn" data-action="redo" data-tooltip="Redo (Ctrl+Y)" disabled>↪</button>
@@ -172,6 +207,37 @@ export class AnnotationEngine {
       btn.addEventListener('click', () => this.setSize(Number((btn as HTMLElement).dataset.size)));
     });
 
+    // ── Color picker: label wraps hidden input, click triggers native picker ──
+    const colorDot = this.toolbar.querySelector('.annotate-color-dot') as HTMLElement;
+    const colorPickInput = this.toolbar.querySelector('.annotate-color-pick-input') as HTMLInputElement;
+
+    // Clicking the color dot also opens the picker via the label
+    if (colorDot) {
+      colorDot.addEventListener('click', () => {
+        const label = this.toolbar.querySelector('.annotate-color-pick-btn') as HTMLElement;
+        if (label) label.click();
+      });
+    }
+
+    if (colorPickInput) {
+      colorPickInput.addEventListener('input', () => {
+        this.setColor(colorPickInput.value);
+      });
+    }
+
+    // ── Opacity slider ──
+    const opacitySlider = this.toolbar.querySelector('.annotate-opacity-slider') as HTMLInputElement;
+    const opacityVal = this.toolbar.querySelector('.annotate-opacity-val') as HTMLElement;
+    if (opacitySlider) {
+      opacitySlider.addEventListener('input', () => {
+        const val = Number(opacitySlider.value);
+        this.setOpacity(val);
+        if (opacityVal) opacityVal.textContent = `${val}%`;
+        if (colorDot) colorDot.style.opacity = String(val / 100);
+      });
+    }
+
+    // ── Action buttons ──
     this.toolbar.querySelectorAll('[data-action]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         const action = (btn as HTMLElement).dataset.action;
@@ -179,6 +245,9 @@ export class AnnotationEngine {
           case 'undo': this.undo(); break;
           case 'redo': this.redo(); break;
           case 'clear': this.clearAll(); break;
+          case 'toggleCursor':
+            this._toggleCursorMode();
+            break;
           case 'toggleExport':
             e.stopPropagation();
             this._toggleExportMenu();
@@ -263,17 +332,26 @@ export class AnnotationEngine {
     }
   }
 
+  // ── Theme Background ───────────────────────
+
+  /** Read the current theme's background color from the overlay's data-theme attribute */
+  private _getThemeBackgroundColor(): string {
+    const theme = this.overlay.getAttribute('data-theme') || 'light';
+    return THEME_BG_COLORS[theme] || '#fbfbf9';
+  }
+
   // ── Canvas Mode ────────────────────────────
 
   private async enterCanvasMode(): Promise<void> {
     if (this.mode === 'canvas') return;
 
     try {
+      const bgColor = this._getThemeBackgroundColor();
       const snapshotCanvas = await html2canvas(this.contentContainer, {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff',
+        backgroundColor: bgColor,
       });
 
       if (!this._enteringCanvasMode || this.mode === 'canvas') return;
@@ -319,6 +397,7 @@ export class AnnotationEngine {
 
       this.mode = 'canvas';
       this._syncCanvasSize();
+      this._applyCursor();
       this._redrawCanvasModeTexts();
     } catch (err) {
       console.error('Failed to enter canvas mode:', err);
@@ -359,6 +438,7 @@ export class AnnotationEngine {
     this.mode = 'dom';
     this._syncCanvasSize();
     this._canvasModeTextNotes = [];
+    this.layer.style.cursor = '';
     this.setTool('none');
   }
 
@@ -472,7 +552,28 @@ export class AnnotationEngine {
     };
   }
 
+  private _getScrollContainer(): HTMLElement | null {
+    if (this.mode === 'canvas') return this._canvasWrapper;
+    return this.overlay;
+  }
+
   private _onPointerDownHandler(e: PointerEvent): void {
+    // ── Pan mode ──
+    if (this.cursorMode === 'pan') {
+      const scrollEl = this._getScrollContainer();
+      if (!scrollEl) return;
+      this.isPanning = true;
+      this.panStart = {
+        x: e.clientX,
+        y: e.clientY,
+        scrollX: scrollEl.scrollLeft,
+        scrollY: scrollEl.scrollTop,
+      };
+      scrollEl.style.cursor = 'grabbing';
+      return;
+    }
+
+    // ── Draw mode ──
     if (this.tool === 'none') return;
 
     if (this.tool === 'text') {
@@ -497,6 +598,18 @@ export class AnnotationEngine {
   }
 
   private _onPointerMoveHandler(e: PointerEvent): void {
+    // ── Pan mode ──
+    if (this.isPanning && this.panStart) {
+      const scrollEl = this._getScrollContainer();
+      if (!scrollEl) return;
+      const dx = this.panStart.x - e.clientX;
+      const dy = this.panStart.y - e.clientY;
+      scrollEl.scrollLeft = this.panStart.scrollX + dx;
+      scrollEl.scrollTop = this.panStart.scrollY + dy;
+      return;
+    }
+
+    // ── Draw mode ──
     if (!this.isDrawing) return;
     if (this.tool === 'none' || this.tool === 'text') return;
 
@@ -504,7 +617,8 @@ export class AnnotationEngine {
     const ctx = this.ctx;
 
     if (this.tool === 'highlight') {
-      ctx.globalAlpha = 0.35;
+      // Fluorescent highlighter: wide, very translucent
+      ctx.globalAlpha = this.opacity * 0.25;
       ctx.lineWidth = HIGHLIGHTER_WIDTH;
       ctx.strokeStyle = this.color;
       ctx.globalCompositeOperation = 'source-over';
@@ -515,8 +629,10 @@ export class AnnotationEngine {
       if (this.tool === 'eraser') {
         ctx.globalCompositeOperation = 'destination-out';
         ctx.strokeStyle = 'rgba(0,0,0,1)';
+        ctx.globalAlpha = 1;
       } else {
         ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = this.opacity;
       }
     }
 
@@ -529,6 +645,16 @@ export class AnnotationEngine {
   }
 
   private _onPointerUpHandler(_e: PointerEvent): void {
+    // ── Pan mode ──
+    if (this.isPanning) {
+      this.isPanning = false;
+      this.panStart = null;
+      const scrollEl = this._getScrollContainer();
+      if (scrollEl) scrollEl.style.cursor = 'grab';
+      return;
+    }
+
+    // ── Draw mode ──
     if (!this.isDrawing) return;
     this.isDrawing = false;
     this.lastPoint = null;
@@ -572,6 +698,7 @@ export class AnnotationEngine {
     else if (e.key === 'e' || e.key === 'E') this.setTool('eraser');
     else if (e.key === 't' || e.key === 'T') this.setTool('text');
     else if (e.key === 'h' || e.key === 'H') this.setTool('highlight');
+    else if (e.key === 'd' || e.key === 'D') this._toggleCursorMode();
     else if (e.key === 'Escape') this.setTool('none');
   }
 
@@ -613,8 +740,45 @@ export class AnnotationEngine {
     this._updateToolbarActive();
   }
 
+  setOpacity(opacity: number): void {
+    this.opacity = Math.max(0.1, Math.min(1, opacity / 100));
+  }
+
+  private _toggleCursorMode(): void {
+    this.cursorMode = this.cursorMode === 'draw' ? 'pan' : 'draw';
+    this._applyCursor();
+    this._updateToolbarActive();
+    // Exit drawing state when switching to pan
+    if (this.cursorMode === 'pan') {
+      this.isDrawing = false;
+      this.lastPoint = null;
+    }
+  }
+
+  private _applyCursor(): void {
+    const activeCanvas = this.mode === 'canvas' ? this._annotCanvas : this.canvas;
+    if (this.cursorMode === 'pan') {
+      if (activeCanvas) activeCanvas.style.cursor = 'grab';
+      this.layer.style.cursor = 'grab';
+      if (this._canvasWrapper) this._canvasWrapper.style.cursor = 'grab';
+    } else {
+      // draw mode — keep default cursor, unchanged from original behavior
+      if (activeCanvas) activeCanvas.style.cursor = '';
+      this.layer.style.cursor = '';
+      if (this._canvasWrapper) this._canvasWrapper.style.cursor = '';
+    }
+  }
+
   private _updateToolbarActive(): void {
     if (!this.toolbar) return;
+
+    // Cursor mode button
+    const cursorBtn = this.toolbar.querySelector('.annotate-cursor-btn') as HTMLElement;
+    if (cursorBtn) {
+      cursorBtn.classList.toggle('active', this.cursorMode === 'draw');
+      cursorBtn.textContent = this.cursorMode === 'draw' ? '✚' : '🖐';
+      cursorBtn.setAttribute('data-tooltip', this.cursorMode === 'draw' ? 'Draw (D)' : 'Pan (D)');
+    }
 
     this.toolbar.querySelectorAll('[data-tool]').forEach((btn) => {
       btn.classList.toggle('active', (btn as HTMLElement).dataset.tool === this.tool);
@@ -627,6 +791,21 @@ export class AnnotationEngine {
     this.toolbar.querySelectorAll('.annotate-size-btn').forEach((b) => {
       b.classList.toggle('active', Number((b as HTMLElement).dataset.size) === this.lineWidth);
     });
+
+    // Refresh color dot & hidden input
+    const colorDot = this.toolbar.querySelector('.annotate-color-dot') as HTMLElement;
+    const colorPickInput = this.toolbar.querySelector('.annotate-color-pick-input') as HTMLInputElement;
+    if (colorDot) {
+      colorDot.style.background = this.color;
+      colorDot.style.opacity = String(this.opacity);
+    }
+    if (colorPickInput) colorPickInput.value = this.color;
+
+    // Refresh opacity slider
+    const opacitySlider = this.toolbar.querySelector('.annotate-opacity-slider') as HTMLInputElement;
+    const opacityVal = this.toolbar.querySelector('.annotate-opacity-val') as HTMLElement;
+    if (opacitySlider) opacitySlider.value = String(Math.round(this.opacity * 100));
+    if (opacityVal) opacityVal.textContent = `${Math.round(this.opacity * 100)}%`;
 
     const undoBtn = this.toolbar.querySelector('[data-action="undo"]') as HTMLButtonElement;
     const redoBtn = this.toolbar.querySelector('[data-action="redo"]') as HTMLButtonElement;
@@ -1309,9 +1488,10 @@ export class AnnotationEngine {
     // Build composite canvas in content script (needs html2canvas DOM access),
     // then send to background for jspdf + download.
     try {
+      const bgColor = this._getThemeBackgroundColor();
       const wrapper = document.createElement('div');
       wrapper.style.cssText =
-        'position:fixed;left:-9999px;top:0;width:900px;background:#fff;padding:20px;' +
+        `position:fixed;left:-9999px;top:0;width:900px;background:${bgColor};padding:20px;` +
         'font-family:system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.6;color:#333;';
 
       const titleEl = document.createElement('h1');
@@ -1363,7 +1543,7 @@ export class AnnotationEngine {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff',
+        backgroundColor: this._getThemeBackgroundColor(),
       });
 
       const contentAreaRect = contentArea.getBoundingClientRect();
@@ -1415,14 +1595,16 @@ export class AnnotationEngine {
     }
   }
 
-  async show(initialTool: string = 'pen', initialColor?: string, initialSize?: number): Promise<void> {
+  async show(initialTool: string = 'pen', initialColor?: string, initialSize?: number, initialOpacity?: number): Promise<void> {
     if (this._enteringCanvasMode) return;
     this._enteringCanvasMode = true;
     this.toolbar.classList.remove('hidden');
     if (initialColor) this.color = initialColor;
     if (initialSize) this.lineWidth = initialSize;
+    if (initialOpacity !== undefined) this.setOpacity(initialOpacity);
     this.tool = initialTool as 'pen' | 'eraser' | 'text' | 'highlight' | 'none';
     this._updateToolbarActive();
+    this._applyCursor();
 
     if (initialTool === 'highlight') {
       // Stay in DOM mode for text selection highlighting
@@ -1497,7 +1679,10 @@ export class AnnotationEngine {
     this.undoStack = [];
     this.redoStack = [];
     this.isDrawing = false;
+    this.isPanning = false;
+    this.panStart = null;
     this.lastPoint = null;
+    this.cursorMode = 'draw';
     this.mode = 'dom';
     this.tool = 'none';
     this._enteringCanvasMode = false;

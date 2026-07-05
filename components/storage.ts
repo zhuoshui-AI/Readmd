@@ -48,11 +48,15 @@ export const fontSize = storage.defineItem<number>('sync:fontSize', {
 });
 
 export const penColor = storage.defineItem<string>('sync:penColor', {
-  defaultValue: '#e74c3c',
+  defaultValue: '#e74c3c99',
 });
 
 export const penSize = storage.defineItem<number>('sync:penSize', {
-  defaultValue: 4,
+  defaultValue: 8,
+});
+
+export const penOpacity = storage.defineItem<number>('sync:penOpacity', {
+  defaultValue: 100,
 });
 
 export const penTool = storage.defineItem<PenTool>('sync:penTool', {
