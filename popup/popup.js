@@ -5,6 +5,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const fontSizeValue = document.getElementById('fontSizeValue');
   const toggleBtn = document.getElementById('toggleReader');
   const exitBtn = document.getElementById('exitReader');
+  const toggleAnnotateBtn = document.getElementById('toggleAnnotate');
+  const exportHTMLBtn = document.getElementById('exportHTML');
+  const exportPDFBtn = document.getElementById('exportPDF');
 
   function isUnsupportedPage(urlString = '') {
     if (!urlString) return true;
@@ -77,6 +80,18 @@ document.addEventListener('DOMContentLoaded', () => {
     notifyContentScript({ action: 'exitReader' });
   });
 
+  toggleAnnotateBtn.addEventListener('click', () => {
+    notifyContentScript({ action: 'toggleAnnotate' });
+  });
+
+  exportHTMLBtn.addEventListener('click', () => {
+    notifyContentScript({ action: 'exportHTML' });
+  });
+
+  exportPDFBtn.addEventListener('click', () => {
+    notifyContentScript({ action: 'exportPDF' });
+  });
+
   function notifyContentScript(message) {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const activeTab = tabs[0];
@@ -98,22 +113,29 @@ document.addEventListener('DOMContentLoaded', () => {
           console.log("Content script not found, injecting now...", err);
           
           try {
-            // Inject Readability first
-            await chrome.scripting.executeScript({
-              target: { tabId: tabId },
-              files: ['content_scripts/Readability.js']
-            });
-            
-            // Then inject our content script
-            await chrome.scripting.executeScript({
-              target: { tabId: tabId },
-              files: ['content_scripts/content.js']
-            });
-            
+            // Inject all scripts in dependency order
+            const scripts = [
+              'content_scripts/Readability.js',
+              'node_modules/html2canvas/dist/html2canvas.min.js',
+              'node_modules/jspdf/dist/jspdf.umd.min.js',
+              'content_scripts/annotate.js',
+              'content_scripts/content.js'
+            ];
+            for (const script of scripts) {
+              await chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                files: [script]
+              });
+            }
+
             // Inject CSS
             await chrome.scripting.insertCSS({
               target: { tabId: tabId },
               files: ['content_scripts/content.css']
+            });
+            await chrome.scripting.insertCSS({
+              target: { tabId: tabId },
+              files: ['content_scripts/annotate.css']
             });
 
             // Wait a tiny bit for the script to initialize its listener

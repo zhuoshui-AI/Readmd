@@ -1,0 +1,306 @@
+/* ── Annotation Toolbar ── */
+#readmd-annotate-toolbar {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  font-family: system-ui, -apple-system, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity 0.2s;
+}
+
+#readmd-annotate-toolbar.hidden {
+  display: none;
+}
+
+/* ── Tool Buttons ── */
+.annotate-tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  color: #555;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.annotate-tool-btn:hover {
+  background: #f0f0f0;
+  color: #222;
+}
+
+.annotate-tool-btn.active {
+  background: #e8f0fe;
+  border-color: #3498db;
+  color: #3498db;
+}
+
+.annotate-tool-btn[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11px;
+  background: #333;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* ── Separator ── */
+.annotate-separator {
+  width: 1px;
+  height: 24px;
+  background: #e0e0e0;
+  margin: 0 2px;
+}
+
+/* ── Color Swatches ── */
+.annotate-colors {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.annotate-color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.annotate-color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.annotate-color-swatch.active {
+  border-color: #333;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+}
+
+/* White swatch needs a visible border always */
+.annotate-color-swatch[data-color="#ecf0f1"] {
+  border: 2px solid #ccc;
+}
+
+/* ── Size Buttons ── */
+.annotate-sizes {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.annotate-size-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  color: #555;
+  transition: all 0.15s;
+}
+
+.annotate-size-btn:hover {
+  background: #f0f0f0;
+}
+
+.annotate-size-btn.active {
+  background: #e8f0fe;
+  border-color: #3498db;
+  color: #3498db;
+}
+
+/* ── Action Buttons ── */
+.annotate-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 15px;
+  color: #555;
+  transition: all 0.15s;
+}
+
+.annotate-action-btn:hover {
+  background: #f0f0f0;
+  color: #222;
+}
+
+.annotate-action-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.annotate-action-btn:disabled:hover {
+  background: transparent;
+  color: #555;
+}
+
+.annotate-action-btn.danger:hover {
+  background: #fde8e8;
+  color: #e74c3c;
+}
+
+/* ── Export Dropdown ── */
+.annotate-export-group {
+  position: relative;
+}
+
+.annotate-export-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  padding: 4px;
+  min-width: 140px;
+  z-index: 10;
+}
+
+.annotate-export-menu.open {
+  display: block;
+}
+
+.annotate-export-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  color: #333;
+  transition: background 0.1s;
+}
+
+.annotate-export-menu button:hover {
+  background: #f0f0f0;
+}
+
+/* ── Annotation Canvas ── */
+#readmd-annotation-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#readmd-annotation-layer.active {
+  pointer-events: auto;
+}
+
+#readmd-annotation-canvas {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* ── Canvas Mode ── */
+#readmd-canvas-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+#readmd-content-canvas {
+  display: block;
+  max-width: 100%;
+}
+
+#readmd-annot-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+}
+
+/* ── Text Annotations ── */
+.readmd-text-note {
+  position: absolute;
+  min-width: 60px;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 2px dashed #3498db;
+  border-radius: 4px;
+  background: rgba(255, 255, 200, 0.85);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #333;
+  cursor: move;
+  outline: none;
+  z-index: 20;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.readmd-text-note.confirmed {
+  border: 1px solid rgba(0,0,0,0.15);
+  background: rgba(255, 255, 180, 0.75);
+  cursor: default;
+}
+
+.readmd-text-note .note-delete-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  background: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  color: #999;
+  display: none;
+}
+
+.readmd-text-note:hover .note-delete-btn {
+  display: block;
+}
+
+.readmd-text-note .note-delete-btn:hover {
+  background: #e74c3c;
+  color: #fff;
+  border-color: #e74c3c;
+}

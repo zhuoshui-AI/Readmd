@@ -7,8 +7,11 @@ let cachedExtractedHtml = '';
 let cachedContentKey = '';
 let pendingPersistSnapshot = null;
 let persistHandle = null;
+let annotateEngine = null;
 
-const progressStorageKey = `readmd-progress:${location.origin}${location.pathname}${location.search}`;
+function getProgressStorageKey() {
+  return `readmd-progress:${location.origin}${location.pathname}${location.search}${location.hash}`;
+}
 
 function getContentCacheKey() {
   return `${location.origin}${location.pathname}${location.search}::${document.title}`;
@@ -18,7 +21,7 @@ function flushPendingProgressPersist() {
   if (!pendingPersistSnapshot) return;
   const snapshot = pendingPersistSnapshot;
   pendingPersistSnapshot = null;
-  chrome.storage.local.set({ [progressStorageKey]: snapshot });
+  chrome.storage.local.set({ [getProgressStorageKey()]: snapshot });
 }
 
 function scheduleProgressPersist() {
@@ -148,8 +151,8 @@ function restoreReadingProgress(preferredSnapshot = null) {
     return;
   }
 
-  chrome.storage.local.get(progressStorageKey, (data) => {
-    const snapshot = data ? data[progressStorageKey] : null;
+  chrome.storage.local.get(getProgressStorageKey(), (data) => {
+    const snapshot = data ? data[getProgressStorageKey()] : null;
     if (!snapshot) return;
     readingProgressSnapshot = snapshot;
     applyAsync(snapshot);
@@ -163,6 +166,7 @@ function isSvgResourceUrl(url = '') {
 }
 
 function normalizeEmbeddedSvgElements(docRoot) {
+  const doc = docRoot.ownerDocument || docRoot;
   const candidates = docRoot.querySelectorAll('object[data], embed[src]');
   candidates.forEach((node) => {
     const sourceAttr = node.tagName === 'OBJECT' ? 'data' : 'src';
@@ -172,7 +176,7 @@ function normalizeEmbeddedSvgElements(docRoot) {
 
     if (!isSvg) return;
 
-    const img = docRoot.createElement('img');
+    const img = doc.createElement('img');
     img.setAttribute('src', source);
 
     const altText = node.getAttribute('alt') || node.getAttribute('title') || node.getAttribute('aria-label') || '';
@@ -502,6 +506,9 @@ function toggleReader() {
     normalizeCodeBlocks(contentContainer);
     overlay.classList.add('active');
     restoreReadingProgress(pageSnapshot || undefined);
+
+    // Initialize annotation engine
+    initAnnotationEngine();
   } else {
     const snapshot = getReadingProgressSnapshot();
     persistReadingProgress(snapshot);
@@ -509,6 +516,7 @@ function toggleReader() {
     document.body.style.overflow = '';
     overlay.classList.remove('active');
     overlay.classList.remove('is-scrolling');
+    if (annotateEngine) annotateEngine.hide();
     requestAnimationFrame(() => {
       applyPageProgress(snapshot);
     });
@@ -530,10 +538,39 @@ function exitReader() {
   document.body.style.overflow = '';
   overlay.classList.remove('active');
   overlay.classList.remove('is-scrolling');
+  if (scrollSaveTimer) {
+    clearTimeout(scrollSaveTimer);
+    scrollSaveTimer = null;
+  }
+  if (scrollbarHideTimer) {
+    clearTimeout(scrollbarHideTimer);
+    scrollbarHideTimer = null;
+  }
+  if (annotateEngine) {
+    annotateEngine.hide();
+  }
   if (snapshot) {
     requestAnimationFrame(() => {
       applyPageProgress(snapshot);
     });
+  }
+}
+
+function initAnnotationEngine() {
+  const contentContainer = overlay.querySelector('#readmd-content');
+  if (!contentContainer) return;
+
+  if (!annotateEngine) {
+    annotateEngine = new AnnotationEngine(overlay, contentContainer);
+  } else {
+    annotateEngine.syncSize();
+  }
+}
+
+function destroyAnnotationEngine() {
+  if (annotateEngine) {
+    annotateEngine.destroy();
+    annotateEngine = null;
   }
 }
 
@@ -543,6 +580,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     toggleReader();
   } else if (request.action === 'exitReader') {
     exitReader();
+    destroyAnnotationEngine();
   } else if (request.action === 'updateTheme') {
     overlay.setAttribute('data-theme', request.theme);
   } else if (request.action === 'updateLayout') {
@@ -557,14 +595,65 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       persistReadingProgress(targetSnapshot);
       restoreReadingProgress(targetSnapshot);
     }
+    // Sync annotation canvas after layout change
+    if (annotateEngine) {
+      setTimeout(() => annotateEngine.syncSize(), 100);
+    }
   } else if (request.action === 'updateFontSize') {
     const beforeResize = isActive ? getReadingProgressSnapshot() : null;
     overlay.style.setProperty('--readmd-font-size', `${request.fontSize}px`);
     if (beforeResize) {
       restoreReadingProgress(beforeResize);
     }
+    // Sync annotation canvas after font size change
+    if (annotateEngine) {
+      setTimeout(() => annotateEngine.syncSize(), 100);
+    }
+  } else if (request.action === 'toggleAnnotate') {
+    // Toggle annotation (doodle) mode on/off.
+    // Requires the reader overlay to be active first.
+    if (!isActive) {
+      // Auto-activate reader mode first, then enable annotation
+      toggleReader();
+      // toggleReader sets isActive synchronously when activating;
+      // initAnnotationEngine creates the engine.
+      // If isActive is still false, the page couldn't be parsed.
+      if (!isActive || !annotateEngine) {
+        sendResponse({ status: "error", reason: "Cannot activate reader mode on this page" });
+        return;
+      }
+    }
+
+    if (annotateEngine.mode === 'canvas') {
+      // Currently doodling → return to reading mode
+      annotateEngine.hide();
+      sendResponse({ status: "ok", annotateMode: "off" });
+    } else {
+      // Currently reading → enter doodle mode
+      annotateEngine.show().then(() => {
+        sendResponse({ status: "ok", annotateMode: "on" });
+      }).catch((err) => {
+        console.error('Failed to enter annotation mode:', err);
+        sendResponse({ status: "error", reason: "Failed to enter annotation mode" });
+      });
+    }
+    return true; // Will send response asynchronously
+  } else if (request.action === 'exportHTML') {
+    if (annotateEngine) {
+      annotateEngine.exportHTML();
+    } else {
+      sendResponse({ status: "error", reason: "Annotation engine not initialized. Enter reader mode first." });
+      return;
+    }
+  } else if (request.action === 'exportPDF') {
+    if (annotateEngine) {
+      annotateEngine.exportPDF();
+    } else {
+      sendResponse({ status: "error", reason: "Annotation engine not initialized. Enter reader mode first." });
+      return;
+    }
   }
-  // Return true to indicate we will send a response asynchronously if needed, 
+  // Return true to indicate we will send a response asynchronously if needed,
   // or just send a simple response to acknowledge receipt.
   sendResponse({ status: "ok" });
 });

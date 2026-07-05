@@ -80,3 +80,32 @@ select, input[type="range"] {
   text-align: right;
   color: #666;
 }
+
+hr {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin: 4px 0;
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: #888;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.export-html-btn {
+  background-color: #27ae60;
+}
+
+.export-html-btn:hover {
+  background-color: #219a52;
+}
+
+.export-pdf-btn {
+  background-color: #8e44ad;
+}
+
+.export-pdf-btn:hover {
+  background-color: #7d3c98;
+}
