@@ -303,3 +303,66 @@
   color: #fff;
   border-color: #e74c3c;
 }
+
+/* ── DOM Highlight Marks ── */
+mark[data-highlight-id] {
+  background-color: attr(data-highlight-color);
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+mark[data-highlight-id]:hover {
+  opacity: 0.7;
+}
+
+/* ── Floating Highlight Palette ── */
+#readmd-highlight-palette {
+  position: fixed;
+  z-index: 2147483647;
+  display: flex;
+  gap: 5px;
+  padding: 6px 8px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  align-items: center;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#readmd-highlight-palette .hl-color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s;
+  flex-shrink: 0;
+}
+#readmd-highlight-palette .hl-color-swatch:hover {
+  transform: scale(1.18);
+  border-color: #333;
+}
+
+#readmd-highlight-palette .hl-remove-btn {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+  color: #999;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+#readmd-highlight-palette .hl-remove-btn:hover {
+  background: #e74c3c;
+  color: #fff;
+  border-color: #e74c3c;
+}

@@ -1,3 +1,4 @@
+import './style.css';
 import { theme, layout, fontSize, penColor, penSize, penTool } from '../../components/storage';
 import type { Theme, Layout, PenTool } from '../../components/storage';
 
@@ -27,19 +28,20 @@ async function getActiveTab() {
 
 async function sendToContentScript(message: Record<string, unknown>) {
   const tab = await getActiveTab();
-  if (!tab?.id) return;
+  if (!tab?.id) return null;
 
   if (isUnsupportedPage(tab.url || '')) {
     alert('Readmd 无法在当前页面运行，请切换到普通网页后重试。');
-    return;
+    return null;
   }
 
   try {
-    await browser.tabs.sendMessage(tab.id, message);
+    return await browser.tabs.sendMessage(tab.id, message);
   } catch {
     // Content script may not be injected yet — WXT handles this automatically
     // for defined content scripts. Just alert if it fails.
     alert('请刷新页面后重试。');
+    return null;
   }
 }
 
@@ -47,10 +49,8 @@ async function sendToContentScript(message: Record<string, unknown>) {
 
 const $ = (sel: string) => document.querySelector(sel)!;
 
-const toggleReaderBtn = $('#toggleReader') as HTMLButtonElement;
-const exitReaderBtn = $('#exitReader') as HTMLButtonElement;
-const toggleAnnotateBtn = $('#toggleAnnotate') as HTMLButtonElement;
-const undoAnnotateBtn = $('#undoAnnotate') as HTMLButtonElement;
+const toggleReaderCheckbox = $('#toggleReader') as HTMLInputElement;
+const toggleAnnotateCheckbox = $('#toggleAnnotate') as HTMLInputElement;
 const exportHTMLBtn = $('#exportHTML') as HTMLButtonElement;
 const exportPDFBtn = $('#exportPDF') as HTMLButtonElement;
 
@@ -98,10 +98,26 @@ initUI();
 
 // ── Event Handlers ────────────────────────────────
 
-toggleReaderBtn.addEventListener('click', () => sendToContentScript({ action: 'toggleReader' }));
-exitReaderBtn.addEventListener('click', () => sendToContentScript({ action: 'exitReader' }));
-toggleAnnotateBtn.addEventListener('click', () => sendToContentScript({ action: 'toggleAnnotate' }));
-undoAnnotateBtn.addEventListener('click', () => sendToContentScript({ action: 'undo' }));
+// Reader mode toggle
+toggleReaderCheckbox.addEventListener('change', async () => {
+  if (toggleReaderCheckbox.checked) {
+    await sendToContentScript({ action: 'toggleReader' });
+  } else {
+    await sendToContentScript({ action: 'exitReader' });
+  }
+});
+
+// Annotation mode toggle
+toggleAnnotateCheckbox.addEventListener('change', async () => {
+  const response = await sendToContentScript({ action: 'toggleAnnotate' });
+  // Sync toggle state with actual annotation mode from content script
+  if (response?.annotateMode === 'on') {
+    toggleAnnotateCheckbox.checked = true;
+  } else if (response?.annotateMode === 'off') {
+    toggleAnnotateCheckbox.checked = false;
+  }
+});
+
 exportHTMLBtn.addEventListener('click', () => sendToContentScript({ action: 'exportHTML' }));
 exportPDFBtn.addEventListener('click', () => sendToContentScript({ action: 'exportPDF' }));
 

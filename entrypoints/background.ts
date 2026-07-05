@@ -119,6 +119,11 @@ async function handleGenerateHTML(msg: HTMLMessage): Promise<void> {
     white-space: pre-wrap;
     word-break: break-word;
   }
+  mark[data-highlight-id] {
+    color: inherit;
+    padding: 0 1px;
+    border-radius: 2px;
+  }
 </style>
 </head>
 <body>

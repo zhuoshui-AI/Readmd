@@ -33,7 +33,7 @@ export type Theme =
 
 export type Layout = 'single' | 'double';
 
-export type PenTool = 'pen' | 'eraser' | 'text' | 'none';
+export type PenTool = 'pen' | 'eraser' | 'text' | 'highlight' | 'none';
 
 export const theme = storage.defineItem<Theme>('sync:theme', {
   defaultValue: 'light',

@@ -16,10 +16,23 @@ const PEN_SIZES = [
 
 const MAX_UNDO = 50;
 
+const HIGHLIGHTER_WIDTH = 18; // wider than pen for highlighter feel
+
+interface DOMHighlight {
+  id: string;
+  color: string;
+  startPath: number[];
+  startOffset: number;
+  endPath: number[];
+  endOffset: number;
+  text: string;
+}
+
 interface UndoSnapshot {
   canvasData: ImageData;
   textState: Array<{ x: number; y: number; text: string; noteId: string }>;
   canvasTextNotes?: CanvasTextNote[];
+  domHighlights?: DOMHighlight[];
   type?: string;
 }
 
@@ -41,7 +54,7 @@ export class AnnotationEngine {
   private overlay: HTMLElement;
   private contentContainer: HTMLElement;
 
-  tool: 'pen' | 'eraser' | 'text' | 'none' = 'pen';
+  tool: 'pen' | 'eraser' | 'text' | 'highlight' | 'none' = 'pen';
   color = ANNOTATION_COLORS[0];
   lineWidth = PEN_SIZES[1].value;
 
@@ -61,6 +74,13 @@ export class AnnotationEngine {
   private _annotCanvas: HTMLCanvasElement | null = null;
   private _canvasModeTextNotes: CanvasTextNote[] = [];
   private _textInputEl: HTMLTextAreaElement | null = null;
+
+  // ── Highlight state ───────────────────────
+  private _domHighlights: DOMHighlight[] = [];
+  private _highlightIdCounter = 0;
+  private _floatingPalette: HTMLElement | null = null;
+  private _onContentMouseUp: ((e: MouseEvent) => void) | null = null;
+  private _dismissPaletteHandler: ((e: MouseEvent) => void) | null = null;
 
   private layer!: HTMLDivElement;
   private canvas!: HTMLCanvasElement;
@@ -120,6 +140,7 @@ export class AnnotationEngine {
       <button class="annotate-tool-btn active" data-tool="pen" data-tooltip="Pen (A)">✏️</button>
       <button class="annotate-tool-btn" data-tool="eraser" data-tooltip="Eraser (E)">🧹</button>
       <button class="annotate-tool-btn" data-tool="text" data-tooltip="Text (T)">💬</button>
+      <button class="annotate-tool-btn" data-tool="highlight" data-tooltip="Highlight (H)">🖍️</button>
       <span class="annotate-separator"></span>
       <div class="annotate-colors">${colorSwatches}</div>
       <span class="annotate-separator"></span>
@@ -428,6 +449,10 @@ export class AnnotationEngine {
     this.canvas.addEventListener('pointercancel', this._onPointerUp);
     document.addEventListener('keydown', this._onKeyDown);
 
+    // MouseUp listener on content container for highlight text selection
+    this._onContentMouseUp = this._onContentMouseUpHandler.bind(this);
+    this.contentContainer.addEventListener('mouseup', this._onContentMouseUp);
+
     if (window.ResizeObserver) {
       this._resizeObserver = new ResizeObserver(() => {
         this._syncCanvasSize();
@@ -456,6 +481,11 @@ export class AnnotationEngine {
       return;
     }
 
+    if (this.tool === 'highlight' && this.mode !== 'canvas') {
+      // In DOM mode, highlight uses text selection — not freehand drawing
+      return;
+    }
+
     this.isDrawing = true;
     const pos = this._getCanvasPos(e);
     this.lastPoint = pos;
@@ -473,14 +503,21 @@ export class AnnotationEngine {
     const pos = this._getCanvasPos(e);
     const ctx = this.ctx;
 
-    ctx.lineWidth = this.lineWidth;
-    ctx.strokeStyle = this.color;
-
-    if (this.tool === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.strokeStyle = 'rgba(0,0,0,1)';
-    } else {
+    if (this.tool === 'highlight') {
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = HIGHLIGHTER_WIDTH;
+      ctx.strokeStyle = this.color;
       ctx.globalCompositeOperation = 'source-over';
+    } else {
+      ctx.lineWidth = this.lineWidth;
+      ctx.strokeStyle = this.color;
+
+      if (this.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+      }
     }
 
     ctx.beginPath();
@@ -496,6 +533,7 @@ export class AnnotationEngine {
     this.isDrawing = false;
     this.lastPoint = null;
     this.ctx.globalCompositeOperation = 'source-over';
+    this.ctx.globalAlpha = 1.0;
   }
 
   private _onKeyDownHandler(e: KeyboardEvent): void {
@@ -533,18 +571,34 @@ export class AnnotationEngine {
     if (e.key === 'a' || e.key === 'A') this.setTool('pen');
     else if (e.key === 'e' || e.key === 'E') this.setTool('eraser');
     else if (e.key === 't' || e.key === 'T') this.setTool('text');
+    else if (e.key === 'h' || e.key === 'H') this.setTool('highlight');
     else if (e.key === 'Escape') this.setTool('none');
   }
 
   // ── Tool / Color / Size ────────────────────
 
   setTool(tool: string): void {
-    this.tool = tool as 'pen' | 'eraser' | 'text' | 'none';
+    const prevTool = this.tool;
+    this.tool = tool as 'pen' | 'eraser' | 'text' | 'highlight' | 'none';
     this._updateToolbarActive();
+
+    // Hide floating palette when switching away from highlight
+    if (prevTool === 'highlight' && tool !== 'highlight') {
+      this._hideHighlightPalette();
+    }
+
     if (tool === 'none') {
       this.layer.classList.remove('active');
     } else {
       this.layer.classList.add('active');
+    }
+
+    // Handle DOM ↔ Canvas mode transitions
+    // Switching from highlight (DOM mode) to a canvas tool → enter canvas mode
+    if (prevTool === 'highlight' && tool !== 'highlight' && tool !== 'none' && this.mode !== 'canvas') {
+      this.enterCanvasMode().catch((err: Error) => {
+        console.error('Failed to enter canvas mode on tool switch:', err);
+      });
     }
   }
 
@@ -639,6 +693,400 @@ export class AnnotationEngine {
     this.textNotes = this.textNotes.filter((n) => n.el !== noteEl);
   }
 
+  // ── DOM Highlight Engine ───────────────────
+
+  /** Walk from node up to root, recording childNode indices at each level */
+  private _getNodePath(node: Node, root: Node): number[] {
+    const path: number[] = [];
+    let current: Node | null = node;
+    while (current && current !== root) {
+      const parent: Node | null = current.parentNode;
+      if (!parent) break;
+      path.unshift(Array.from(parent.childNodes).indexOf(current as ChildNode));
+      current = parent;
+    }
+    return path;
+  }
+
+  /** Walk from root following indices to resolve a node */
+  private _resolveNodePath(path: number[], root: Node): Node | null {
+    let current: Node = root;
+    for (const idx of path) {
+      if (idx >= current.childNodes.length) return null;
+      current = current.childNodes[idx];
+    }
+    return current;
+  }
+
+  /** Core algorithm: wrap selected portions of text nodes in &lt;mark&gt; elements */
+  private _highlightRange(range: Range, color: string, id: string): void {
+    // Try surroundContents for simple cases (selection within a single element)
+    try {
+      const mark = document.createElement('mark');
+      mark.setAttribute('data-highlight-id', id);
+      mark.setAttribute('data-highlight-color', color);
+      mark.style.backgroundColor = color;
+      mark.style.color = 'inherit';
+      range.surroundContents(mark);
+      return;
+    } catch {
+      // Range crosses element boundaries — use text-node iteration
+    }
+
+    const textNodes: Text[] = [];
+    const walker = document.createTreeWalker(
+      range.commonAncestorContainer,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node) =>
+          range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT,
+      },
+    );
+    let node: Text | null;
+    while ((node = walker.nextNode() as Text | null)) {
+      textNodes.push(node);
+    }
+
+    if (textNodes.length === 0) return;
+
+    for (const textNode of textNodes) {
+      let startOffset = 0;
+      let endOffset = textNode.length;
+
+      if (textNode === range.startContainer) {
+        startOffset = range.startOffset;
+      }
+      if (textNode === range.endContainer) {
+        endOffset = range.endOffset;
+      }
+
+      if (startOffset >= endOffset) continue;
+
+      // Split at end first (preserves start offset)
+      const afterSplit = textNode.splitText(endOffset);
+      // Split at start — middleSplit holds exactly the selected portion
+      const middleSplit = textNode.splitText(startOffset);
+
+      const mark = document.createElement('mark');
+      mark.setAttribute('data-highlight-id', id);
+      mark.setAttribute('data-highlight-color', color);
+      mark.style.backgroundColor = color;
+      mark.style.color = 'inherit';
+      mark.textContent = middleSplit.textContent;
+      middleSplit.replaceWith(mark);
+    }
+
+    // Merge adjacent marks of the same color
+    this._normalizeHighlights(range.commonAncestorContainer as HTMLElement);
+  }
+
+  /** Merge adjacent &lt;mark&gt; siblings that share the same color */
+  private _normalizeHighlights(root: HTMLElement): void {
+    const marks = root.querySelectorAll('mark[data-highlight-id]');
+    marks.forEach((mark) => {
+      const next = mark.nextElementSibling;
+      if (
+        next &&
+        next.tagName === 'MARK' &&
+        next.getAttribute('data-highlight-color') === mark.getAttribute('data-highlight-color')
+      ) {
+        // Move children from next into mark
+        while (next.firstChild) {
+          mark.appendChild(next.firstChild);
+        }
+        next.remove();
+      }
+    });
+  }
+
+  /** Serialize highlights for undo snapshot */
+  private _serializeHighlights(): DOMHighlight[] {
+    return this._domHighlights.map((h) => ({
+      id: h.id,
+      color: h.color,
+      startPath: [...h.startPath],
+      startOffset: h.startOffset,
+      endPath: [...h.endPath],
+      endOffset: h.endOffset,
+      text: h.text,
+    }));
+  }
+
+  /** Remove all &lt;mark&gt; elements from the content container */
+  private _removeAllHighlightsFromDOM(): void {
+    if (!this.contentContainer) return;
+    const marks = this.contentContainer.querySelectorAll('mark[data-highlight-id]');
+    marks.forEach((mark) => {
+      const parent = mark.parentNode;
+      if (!parent) return;
+      while (mark.firstChild) {
+        parent.insertBefore(mark.firstChild, mark);
+      }
+      parent.removeChild(mark);
+    });
+    // Normalize text nodes after unwrapping
+    if (this.contentContainer.normalize) {
+      this.contentContainer.normalize();
+    }
+  }
+
+  /** Restore highlights from stored data */
+  private _applyHighlightsToDOM(highlights: DOMHighlight[]): void {
+    if (!highlights.length) return;
+    if (!this.contentContainer) return;
+
+    for (const hl of highlights) {
+      const startNode = this._resolveNodePath(hl.startPath, this.contentContainer);
+      const endNode = this._resolveNodePath(hl.endPath, this.contentContainer);
+
+      let range: Range | null = null;
+
+      if (startNode && endNode) {
+        try {
+          range = document.createRange();
+          range.setStart(startNode, Math.min(hl.startOffset, (startNode as Text).length || 0));
+          range.setEnd(endNode, Math.min(hl.endOffset, (endNode as Text).length || 0));
+        } catch {
+          range = null;
+        }
+      }
+
+      // Fallback: search by text content
+      if (!range) {
+        const found = this._findTextRange(hl.text, this.contentContainer);
+        if (found) {
+          range = found;
+        }
+      }
+
+      if (range) {
+        try {
+          this._highlightRange(range, hl.color, hl.id);
+        } catch {
+          // Skip if highlighting fails
+        }
+      }
+    }
+  }
+
+  /** Fallback: find a text range by searching for matching text content */
+  private _findTextRange(text: string, root: Element): Range | null {
+    if (!text || text.length < 2) return null;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let node: Text | null;
+    while ((node = walker.nextNode() as Text | null)) {
+      const idx = (node.textContent || '').indexOf(text);
+      if (idx !== -1) {
+        const range = document.createRange();
+        range.setStart(node, idx);
+        range.setEnd(node, idx + text.length);
+        return range;
+      }
+    }
+    return null;
+  }
+
+  /** Apply DOM highlight from current text selection */
+  private _applyDOMHighlight(color: string): void {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) return;
+
+    const id = `hl-${this._highlightIdCounter++}`;
+    const range = selection.getRangeAt(0);
+
+    // Check selection is within content container
+    if (!this.contentContainer) return;
+    if (
+      !this.contentContainer.contains(range.commonAncestorContainer)
+    ) {
+      return;
+    }
+
+    const text = selection.toString().trim();
+    if (!text) return;
+
+    this._pushUndo({ type: 'highlight' });
+
+    this._highlightRange(range, color, id);
+
+    this._domHighlights.push({
+      id,
+      color,
+      startPath: this._getNodePath(range.startContainer, this.contentContainer),
+      startOffset: range.startOffset,
+      endPath: this._getNodePath(range.endContainer, this.contentContainer),
+      endOffset: range.endOffset,
+      text,
+    });
+
+    selection.removeAllRanges();
+    this._updateToolbarActive();
+  }
+
+  /** Remove a single highlight mark */
+  private _removeHighlightMark(markEl: HTMLElement): void {
+    const id = markEl.getAttribute('data-highlight-id');
+    if (!id) return;
+
+    this._pushUndo({ type: 'highlight' });
+
+    const parent = markEl.parentNode;
+    if (parent) {
+      while (markEl.firstChild) {
+        parent.insertBefore(markEl.firstChild, markEl);
+      }
+      parent.removeChild(markEl);
+      (parent as Node).normalize();
+    }
+
+    this._domHighlights = this._domHighlights.filter((h) => h.id !== id);
+    this._updateToolbarActive();
+  }
+
+  // ── Floating Highlight Palette ─────────────
+
+  private _onContentMouseUpHandler(e: MouseEvent): void {
+    if (this.tool !== 'highlight') return;
+
+    // Small delay to let the selection settle
+    setTimeout(() => {
+      if (this.tool !== 'highlight') return;
+
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        this._hideHighlightPalette();
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      if (!this.contentContainer) return;
+
+      // Check if selection is within content container
+      if (!this.contentContainer.contains(range.commonAncestorContainer)) {
+        this._hideHighlightPalette();
+        return;
+      }
+
+      // Check if click is on an existing highlight mark
+      const target = e.target as HTMLElement;
+      const mark = target.closest('mark[data-highlight-id]');
+      if (mark && this.contentContainer.contains(mark)) {
+        // In highlight mode, clicking a mark shows remove option in palette
+        this._showHighlightPalette(range.getBoundingClientRect(), mark as HTMLElement);
+        return;
+      }
+
+      const text = selection.toString().trim();
+      if (!text) {
+        this._hideHighlightPalette();
+        return;
+      }
+
+      this._showHighlightPalette(range.getBoundingClientRect(), null);
+    }, 10);
+  }
+
+  private _showHighlightPalette(rect: DOMRect, existingMark: HTMLElement | null): void {
+    this._hideHighlightPalette();
+
+    const palette = document.createElement('div');
+    palette.id = 'readmd-highlight-palette';
+
+    // Color swatches
+    ANNOTATION_COLORS.forEach((c) => {
+      const swatch = document.createElement('span');
+      swatch.className = 'hl-color-swatch';
+      swatch.style.backgroundColor = c;
+      swatch.title = c;
+      swatch.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (existingMark) {
+          // If clicking on an existing mark, recolor it
+          existingMark.style.backgroundColor = c;
+          existingMark.setAttribute('data-highlight-color', c);
+          const id = existingMark.getAttribute('data-highlight-id');
+          if (id) {
+            const hl = this._domHighlights.find((h) => h.id === id);
+            if (hl) hl.color = c;
+          }
+        } else {
+          this._applyDOMHighlight(c);
+        }
+        this._hideHighlightPalette();
+      });
+      palette.appendChild(swatch);
+    });
+
+    // Remove button
+    if (existingMark) {
+      const sep = document.createElement('span');
+      sep.style.cssText = 'width:1px;height:20px;background:#ddd;margin:0 2px;';
+      palette.appendChild(sep);
+
+      const removeBtn = document.createElement('span');
+      removeBtn.className = 'hl-remove-btn';
+      removeBtn.textContent = '×';
+      removeBtn.title = 'Remove highlight';
+      removeBtn.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this._removeHighlightMark(existingMark);
+        this._hideHighlightPalette();
+      });
+      palette.appendChild(removeBtn);
+    }
+
+    // Position palette
+    document.body.appendChild(palette);
+
+    const paletteW = palette.offsetWidth;
+    const paletteH = palette.offsetHeight;
+    const margin = 10;
+
+    let left = rect.left + rect.width / 2 - paletteW / 2;
+    let top = rect.bottom + 8;
+
+    // Clamp horizontally
+    if (left < margin) left = margin;
+    if (left + paletteW > window.innerWidth - margin) {
+      left = window.innerWidth - paletteW - margin;
+    }
+
+    // If too close to bottom, show above
+    if (top + paletteH > window.innerHeight - margin) {
+      top = rect.top - paletteH - 8;
+    }
+    if (top < margin) top = margin;
+
+    palette.style.cssText += `left:${left}px;top:${top}px;`;
+
+    this._floatingPalette = palette;
+
+    // Dismiss on outside click
+    this._dismissPaletteHandler = (ev: MouseEvent) => {
+      if (!palette.contains(ev.target as Node)) {
+        this._hideHighlightPalette();
+      }
+    };
+    setTimeout(() => {
+      if (this._floatingPalette === palette) {
+        document.addEventListener('mousedown', this._dismissPaletteHandler!);
+      }
+    }, 0);
+  }
+
+  private _hideHighlightPalette(): void {
+    if (this._floatingPalette) {
+      this._floatingPalette.remove();
+      this._floatingPalette = null;
+    }
+    if (this._dismissPaletteHandler) {
+      document.removeEventListener('mousedown', this._dismissPaletteHandler);
+      this._dismissPaletteHandler = null;
+    }
+  }
+
   // ── Undo / Redo ────────────────────────────
 
   private _pushUndo(meta: { type: string }): void {
@@ -653,6 +1101,7 @@ export class AnnotationEngine {
       })),
       // Also snapshot canvas-mode text notes so undo/redo tracks them
       canvasTextNotes: this._canvasModeTextNotes.map((n) => ({ ...n })),
+      domHighlights: this._serializeHighlights(),
       ...meta,
     };
 
@@ -676,6 +1125,7 @@ export class AnnotationEngine {
         noteId: n.el.dataset.noteId || '',
       })),
       canvasTextNotes: this._canvasModeTextNotes.map((n) => ({ ...n })),
+      domHighlights: this._serializeHighlights(),
       type: 'undo-point',
     };
     this.redoStack.push(current);
@@ -697,6 +1147,7 @@ export class AnnotationEngine {
         noteId: n.el.dataset.noteId || '',
       })),
       canvasTextNotes: this._canvasModeTextNotes.map((n) => ({ ...n })),
+      domHighlights: this._serializeHighlights(),
       type: 'redo-point',
     };
     this.undoStack.push(current);
@@ -742,6 +1193,16 @@ export class AnnotationEngine {
 
     // Restore canvas-mode text notes
     this._canvasModeTextNotes = (snapshot.canvasTextNotes || []).map((n) => ({ ...n }));
+
+    // Restore DOM highlights
+    this._removeAllHighlightsFromDOM();
+    this._domHighlights = (snapshot.domHighlights || []).map((h) => ({
+      id: h.id, color: h.color,
+      startPath: [...h.startPath], startOffset: h.startOffset,
+      endPath: [...h.endPath], endOffset: h.endOffset,
+      text: h.text,
+    }));
+    this._applyHighlightsToDOM(this._domHighlights);
   }
 
   // ── Clear ──────────────────────────────────
@@ -753,6 +1214,8 @@ export class AnnotationEngine {
     this.textNotes.forEach((n) => n.el.remove());
     this.textNotes = [];
     this._canvasModeTextNotes = [];
+    this._removeAllHighlightsFromDOM();
+    this._domHighlights = [];
     this._updateToolbarActive();
   }
 
@@ -958,9 +1421,15 @@ export class AnnotationEngine {
     this.toolbar.classList.remove('hidden');
     if (initialColor) this.color = initialColor;
     if (initialSize) this.lineWidth = initialSize;
-    this.tool = initialTool as 'pen' | 'eraser' | 'text' | 'none';
+    this.tool = initialTool as 'pen' | 'eraser' | 'text' | 'highlight' | 'none';
     this._updateToolbarActive();
-    await this.enterCanvasMode();
+
+    if (initialTool === 'highlight') {
+      // Stay in DOM mode for text selection highlighting
+      this.layer.classList.add('active');
+    } else {
+      await this.enterCanvasMode();
+    }
     this._enteringCanvasMode = false;
   }
 
@@ -1008,6 +1477,15 @@ export class AnnotationEngine {
 
     this.textNotes.forEach((n) => n.el.remove());
     this.textNotes = [];
+
+    // Clean up highlights
+    this._hideHighlightPalette();
+    this._removeAllHighlightsFromDOM();
+    this._domHighlights = [];
+    if (this._onContentMouseUp && this.contentContainer) {
+      this.contentContainer.removeEventListener('mouseup', this._onContentMouseUp);
+      this._onContentMouseUp = null;
+    }
 
     if (this.toolbar) { this.toolbar.remove(); this.toolbar = null!; }
     if (this.layer) { this.layer.remove(); this.layer = null!; }

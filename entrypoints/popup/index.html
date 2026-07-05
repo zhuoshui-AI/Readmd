@@ -12,9 +12,12 @@
     <!-- ── Reader Controls ── -->
     <div class="section">
       <div class="section-title">阅读控制</div>
-      <div class="button-row">
-        <button id="toggleReader" class="primary-btn">开启阅读模式</button>
-        <button id="exitReader" class="secondary-btn">退出阅读</button>
+      <div class="toggle-row">
+        <span class="toggle-label">阅读模式</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleReader" title="阅读模式开关">
+          <span class="toggle-slider"></span>
+        </label>
       </div>
     </div>
 
@@ -22,42 +25,15 @@
 
     <!-- ── Annotation Controls ── -->
     <div class="section">
-      <div class="section-title">涂鸦标注</div>
-      <div class="button-row">
-        <button id="toggleAnnotate" class="primary-btn">涂鸦开关</button>
-        <button id="undoAnnotate" class="action-btn">↩ 撤销</button>
+      <div class="section-title">标注</div>
+      <div class="toggle-row">
+        <span class="toggle-label">批注模式</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleAnnotate" title="批注模式开关">
+          <span class="toggle-slider"></span>
+        </label>
       </div>
 
-      <div class="setting-group">
-        <label>画笔颜色</label>
-        <div class="color-swatches" id="colorSwatches">
-          <span class="color-swatch active" data-color="#e74c3c" style="background:#e74c3c"></span>
-          <span class="color-swatch" data-color="#e67e22" style="background:#e67e22"></span>
-          <span class="color-swatch" data-color="#f1c40f" style="background:#f1c40f"></span>
-          <span class="color-swatch" data-color="#2ecc71" style="background:#2ecc71"></span>
-          <span class="color-swatch" data-color="#3498db" style="background:#3498db"></span>
-          <span class="color-swatch" data-color="#9b59b6" style="background:#9b59b6"></span>
-          <span class="color-swatch" data-color="#2c3e50" style="background:#2c3e50"></span>
-          <span class="color-swatch" data-color="#ecf0f1" style="background:#ecf0f1"></span>
-        </div>
-      </div>
-
-      <div class="setting-group">
-        <label>画笔粗细</label>
-        <div class="size-btns" id="sizeBtns">
-          <button class="size-btn" data-size="2">S</button>
-          <button class="size-btn active" data-size="4">M</button>
-          <button class="size-btn" data-size="8">L</button>
-        </div>
-      </div>
-
-      <div class="setting-group">
-        <label>工具</label>
-        <div class="tool-toggles" id="toolToggles">
-          <button class="tool-btn active" data-tool="pen">✏️ 画笔</button>
-          <button class="tool-btn" data-tool="eraser">🧹 橡皮</button>
-        </div>
-      </div>
     </div>
 
     <hr>
