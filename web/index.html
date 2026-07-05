@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Readmd 项目介绍</title>
+  <meta name="description" content="Readmd 浏览器扩展：沉浸式阅读 + 全文批注标注 + HTML/PDF 导出。自动提取正文、画笔/荧光笔/文字批注、10种主题。">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="#top">Readmd</a>
+      <nav id="toc" class="toc" aria-label="文档目录">
+        <a href="#overview" data-i18n="toc.overview">概览</a>
+        <a href="#install" data-i18n="toc.install">安装</a>
+        <a href="#usage" data-i18n="toc.usage">使用流程</a>
+        <a href="#shortcuts" data-i18n="toc.shortcuts">快捷键</a>
+        <a href="#compatibility" data-i18n="toc.compatibility">兼容与限制</a>
+        <a href="#roadmap" data-i18n="toc.roadmap">路线图</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="topbar-controls" aria-label="language and theme controls">
+        <div class="control-group" role="group" aria-label="language selector">
+          <button id="langZh" class="control-btn" type="button">中</button>
+          <button id="langEn" class="control-btn" type="button">EN</button>
+        </div>
+        <div class="control-group" role="group" aria-label="theme selector">
+          <button id="themeLight" class="control-btn" type="button" data-i18n="controls.light">亮色</button>
+          <button id="themeDark" class="control-btn" type="button" data-i18n="controls.dark">暗色</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="top" class="container page">
+    <section class="hero">
+      <p class="badge" data-i18n="hero.badge">浏览器扩展项目介绍</p>
+      <h1 data-i18n="hero.title">Readmd 沉浸式阅读 & 批注器</h1>
+      <p data-i18n="hero.desc">
+        Readmd 是一款集沉浸式阅读与全文批注于一体的浏览器扩展。自动提取正文、一键批注标注、导出 HTML/PDF，让阅读网页像读书一样专注。
+      </p>
+      <div class="hero-actions">
+        <a class="button primary" href="#install" data-i18n="hero.install">安装指南</a>
+        <a class="button" href="#overview" data-i18n="hero.features">功能概览</a>
+      </div>
+    </section>
+
+    <section id="overview" class="card">
+      <h2 data-i18n="overview.title">1. 功能概览</h2>
+
+      <h3 data-i18n="overview.reading.title">📖 沉浸式阅读</h3>
+      <ul>
+        <li data-i18n="overview.reading.li1">正文提取：基于 Mozilla Readability 算法，自动识别并过滤导航、侧栏、广告。</li>
+        <li data-i18n="overview.reading.li2">全屏阅读层：高 z-index 独立容器，与原网页 CSS 完全隔离，无样式冲突。</li>
+        <li data-i18n="overview.reading.li3">单页 / 双页布局：经典纵向滚动 + 仿书页双栏布局，切换时保持阅读进度。</li>
+        <li data-i18n="overview.reading.li4">10 种主题 + 无极字号：6 种浅色主题 + 4 种深色主题，字号 14–24px 连续可调。</li>
+        <li data-i18n="overview.reading.li5">代码块优化：统一缩进、可滚动容器、与正文清晰视觉分离。</li>
+        <li data-i18n="overview.reading.li6">阅读进度记忆：按 URL 自动保存和恢复阅读位置，支持单/双页布局。</li>
+      </ul>
+
+      <h3 data-i18n="overview.annotate.title">✏️ 全文批注标注</h3>
+      <ul>
+        <li data-i18n="overview.annotate.li1">DOM 文本高亮：选中文字即可添加荧光笔高亮，8 种颜色可选，支持换色和删除。</li>
+        <li data-i18n="overview.annotate.li2">画笔涂鸦：自由绘制，3 档笔触（S/M/L）、8 种预设色 + 系统取色器、透明度可调。</li>
+        <li data-i18n="overview.annotate.li3">橡皮擦：精准擦除笔画，不破坏底层内容。</li>
+        <li data-i18n="overview.annotate.li4">文字批注：点击任意位置添加可编辑文本框，支持编辑和删除。</li>
+        <li data-i18n="overview.annotate.li5">画布模式：高分辨率（2x）内容快照 + 独立批注层，保证批注精准。</li>
+        <li data-i18n="overview.annotate.li6">拖拽平移：一键切换绘图/平移模式，方便浏览大型页面。</li>
+      </ul>
+
+      <h3 data-i18n="overview.export.title">📄 导出 & 编辑</h3>
+      <ul>
+        <li data-i18n="overview.export.li1">导出 HTML：生成包含原文 + 批注 + 高亮的独立 HTML 文件，可直接在浏览器中查看。</li>
+        <li data-i18n="overview.export.li2">导出 PDF：多页 A4 PDF，批注合并渲染到正文上，自动分页。</li>
+        <li data-i18n="overview.export.li3">撤销 / 重做：50 步历史栈，覆盖画笔、文字批注和高光标注。</li>
+        <li data-i18n="overview.export.li4">全部清除：一键重置所有批注。</li>
+        <li data-i18n="overview.export.li5">完整键盘快捷键：覆盖工具切换、撤销重做、导出等全部操作。</li>
+      </ul>
+    </section>
+
+    <section id="install" class="card">
+      <h2 data-i18n="install.title">2. 安装与启动</h2>
+
+      <h3 data-i18n="install.manual.title">手动安装（开发者模式）</h3>
+      <ol>
+        <li data-i18n="install.manual.li1">克隆仓库并安装依赖：<br><code>git clone &lt;repo-url&gt; && cd readmd && npm install</code></li>
+        <li data-i18n="install.manual.li2">构建扩展：<br><code>npm run build</code>（Firefox 使用 <code>npm run build:firefox</code>）</li>
+        <li data-i18n-html="install.manual.li3">打开浏览器扩展管理页：<strong>chrome://extensions/</strong> 或 <strong>edge://extensions/</strong>。</li>
+        <li data-i18n="install.manual.li4">开启"开发者模式"。</li>
+        <li data-i18n="install.manual.li5">点击"加载已解压的扩展程序"，选择 <code>.output/chrome-mv3</code> 目录。</li>
+        <li data-i18n="install.manual.li6">打开任意文章页，点击扩展图标，进入 Readmd 控制面板。</li>
+      </ol>
+
+      <h3 data-i18n="install.store.title">商店安装</h3>
+      <p data-i18n="install.store.desc">Chrome Web Store / Edge Add-ons / Firefox Add-ons 上架筹备中，敬请期待。</p>
+
+      <p class="tip" data-i18n="install.tip">提示：浏览器内置页面（如 chrome://）无法注入扩展脚本。</p>
+    </section>
+
+    <section id="usage" class="card">
+      <h2 data-i18n="usage.title">3. 基本使用流程</h2>
+
+      <h3 data-i18n="usage.reading.title">阅读模式</h3>
+      <div class="step-grid">
+        <article>
+          <h4 data-i18n="usage.reading.step1.title">Step 1 — 进入阅读模式</h4>
+          <p data-i18n="usage.reading.step1.desc">点击弹窗中的"阅读模式"开关，页面进入沉浸式阅读层，自动提取正文内容。</p>
+        </article>
+        <article>
+          <h4 data-i18n="usage.reading.step2.title">Step 2 — 调整阅读参数</h4>
+          <p data-i18n="usage.reading.step2.desc">在弹窗中切换主题（10 种）、布局（单页/双页）和字号，修改后即时生效。</p>
+        </article>
+        <article>
+          <h4 data-i18n="usage.reading.step3.title">Step 3 — 退出阅读模式</h4>
+          <p data-i18n="usage.reading.step3.desc">关闭阅读模式开关，返回原页面，阅读进度自动保存并恢复。</p>
+        </article>
+      </div>
+
+      <h3 data-i18n="usage.annotate.title">批注模式</h3>
+      <div class="step-grid">
+        <article>
+          <h4 data-i18n="usage.annotate.step1.title">Step 1 — 进入批注模式</h4>
+          <p data-i18n="usage.annotate.step1.desc">在阅读模式下，点击弹窗中的"批注模式"开关，底部出现批注工具栏。</p>
+        </article>
+        <article>
+          <h4 data-i18n="usage.annotate.step2.title">Step 2 — 选择工具开始标注</h4>
+          <p data-i18n="usage.annotate.step2.desc">选择画笔/橡皮擦/文字批注/荧光笔工具，调整颜色、大小、透明度后开始标注。</p>
+        </article>
+        <article>
+          <h4 data-i18n="usage.annotate.step3.title">Step 3 — 导出批注内容</h4>
+          <p data-i18n="usage.annotate.step3.desc">点击工具栏或弹窗中的导出按钮，将批注后的内容保存为 HTML 或 PDF 文件。</p>
+        </article>
+      </div>
+
+      <h3 data-i18n="usage.table.title">控制面板设置项说明</h3>
+      <table>
+        <thead>
+          <tr><th data-i18n="usage.table.col1">设置项</th><th data-i18n="usage.table.col2">作用</th></tr>
+        </thead>
+        <tbody>
+          <tr><td data-i18n="usage.table.r0.name">阅读模式</td><td data-i18n="usage.table.r0.desc">开启/关闭沉浸式阅读层。</td></tr>
+          <tr><td data-i18n="usage.table.r1.name">批注模式</td><td data-i18n="usage.table.r1.desc">开启/关闭批注工具栏（画笔、橡皮擦、文字、荧光笔）。</td></tr>
+          <tr><td data-i18n="usage.table.r2.name">导出 HTML</td><td data-i18n="usage.table.r2.desc">将原文 + 批注保存为独立 HTML 文件。</td></tr>
+          <tr><td data-i18n="usage.table.r3.name">导出 PDF</td><td data-i18n="usage.table.r3.desc">将原文 + 批注保存为 A4 多页 PDF 文件。</td></tr>
+          <tr><td data-i18n="usage.table.r4.name">主题 Theme</td><td data-i18n="usage.table.r4.desc">切换阅读背景与文本配色（10 种可选）。</td></tr>
+          <tr><td data-i18n="usage.table.r5.name">布局 Layout</td><td data-i18n="usage.table.r5.desc">Single Page（单页）/ Double Page（双页）。</td></tr>
+          <tr><td data-i18n="usage.table.r6.name">字号 Font Size</td><td data-i18n="usage.table.r6.desc">调整正文文字大小（14px–24px）。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="shortcuts" class="card">
+      <h2 data-i18n="shortcuts.title">4. 键盘快捷键</h2>
+      <table>
+        <thead>
+          <tr><th data-i18n="shortcuts.col1">快捷键</th><th data-i18n="shortcuts.col2">功能</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><kbd>A</kbd></td><td data-i18n="shortcuts.a">画笔工具</td></tr>
+          <tr><td><kbd>E</kbd></td><td data-i18n="shortcuts.e">橡皮擦工具</td></tr>
+          <tr><td><kbd>T</kbd></td><td data-i18n="shortcuts.t">文字批注工具</td></tr>
+          <tr><td><kbd>H</kbd></td><td data-i18n="shortcuts.h">荧光笔工具</td></tr>
+          <tr><td><kbd>D</kbd></td><td data-i18n="shortcuts.d">绘图 / 平移切换</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td data-i18n="shortcuts.esc">退出批注模式</td></tr>
+          <tr><td><kbd>Ctrl+Z</kbd> / <kbd>⌘Z</kbd></td><td data-i18n="shortcuts.undo">撤销</td></tr>
+          <tr><td><kbd>Ctrl+Y</kbd> / <kbd>⌘Y</kbd></td><td data-i18n="shortcuts.redo">重做</td></tr>
+          <tr><td><kbd>Ctrl+S</kbd> / <kbd>⌘S</kbd></td><td data-i18n="shortcuts.html">导出 HTML</td></tr>
+          <tr><td><kbd>Ctrl+Shift+S</kbd> / <kbd>⌘Shift+S</kbd></td><td data-i18n="shortcuts.pdf">导出 PDF</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="compatibility" class="card">
+      <h2 data-i18n="compatibility.title">5. 兼容与限制</h2>
+      <ul>
+        <li data-i18n="compatibility.li1">支持普通网页（http/https），基于 Manifest V3 标准。</li>
+        <li data-i18n="compatibility.li2">不支持浏览器内部页面（如 chrome://、edge://、about:）。</li>
+        <li data-i18n="compatibility.li3">页面结构差异较大时，正文提取结果可能不同，可切换回原页面对照。</li>
+        <li data-i18n="compatibility.li4">双页布局中极长代码行会优先换行，以保持版面稳定性。</li>
+        <li data-i18n="compatibility.li5">批注数据存储在内存中，刷新页面后批注会丢失（导出功能可保存批注结果）。</li>
+      </ul>
+    </section>
+
+    <section id="roadmap" class="card">
+      <h2 data-i18n="roadmap.title">6. 规划路线图</h2>
+      <p data-i18n="roadmap.desc">以下能力已进入项目规划（未在当前版本启用）：</p>
+      <ul>
+        <li data-i18n="roadmap.li1">图片导出：支持导出为 PNG、JPEG 格式。</li>
+        <li data-i18n="roadmap.li2">Markdown 导出：将正文导出为 Markdown 格式。</li>
+        <li data-i18n="roadmap.li3">批注持久化：批注数据浏览器本地持久存储，刷新不丢失。</li>
+        <li data-i18n="roadmap.li4">批注图层开关：一键显示/隐藏所有批注。</li>
+        <li data-i18n="roadmap.li5">目录自动生成：根据文章标题层级自动生成阅读目录。</li>
+        <li data-i18n="roadmap.li6">阅读时长估算：根据文章字数估算阅读时间。</li>
+      </ul>
+      <p class="tip" data-i18n="roadmap.tip">说明：路线图来自项目规划文档，具体发布时间以迭代计划为准。</p>
+    </section>
+
+    <section id="faq" class="card">
+      <h2 data-i18n="faq.title">7. 常见问题</h2>
+      <details>
+        <summary data-i18n="faq.q1">点击按钮没有反应怎么办？</summary>
+        <p data-i18n="faq.a1">请确认当前页面不是浏览器内部页面（chrome://、edge://、about:），并刷新后重试。</p>
+      </details>
+      <details>
+        <summary data-i18n="faq.q2">设置会丢失吗？</summary>
+        <p data-i18n="faq.a2">主题、布局、字号和画笔偏好保存在浏览器同步存储中，登录浏览器账号后可跨设备同步；阅读进度按页面保存在本地存储中。</p>
+      </details>
+      <details>
+        <summary data-i18n="faq.q3">为什么有些页面提取效果一般？</summary>
+        <p data-i18n="faq.a3">不同网站 DOM 结构差异较大，提取策略会优先保留正文可读性。可切换回原页面或尝试其它页面验证效果。</p>
+      </details>
+      <details>
+        <summary data-i18n="faq.q4">批注可以保存吗？</summary>
+        <p data-i18n="faq.a4">当前批注数据存储在内存中，刷新页面后会丢失。但你可以通过"导出 HTML"或"导出 PDF"功能将批注内容保存为文件。批注持久化存储已在路线图中规划。</p>
+      </details>
+      <details>
+        <summary data-i18n="faq.q5">我的数据会被上传吗？</summary>
+        <p data-i18n="faq.a5">不会。所有内容提取、批注处理和导出均在浏览器本地完成，无任何数据上传到远程服务器。扩展无需注册账号。</p>
+      </details>
+    </section>
+
+    <section id="privacy" class="card">
+      <h2 data-i18n="privacy.title">8. 隐私说明</h2>
+      <ul>
+        <li data-i18n="privacy.li1">无需注册账号，无需登录。</li>
+        <li data-i18n="privacy.li2">所有内容提取、批注处理和导出均在浏览器本地完成。</li>
+        <li data-i18n="privacy.li3">不上传任何阅读内容到远程服务器。</li>
+        <li data-i18n="privacy.li4">仅使用浏览器存储 API 保存用户偏好和阅读进度。</li>
+        <li data-i18n="privacy.li5">仅在用户主动操作时对当前页面进行处理，无后台行为。</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p data-i18n="footer.text">Readmd Project Intro · 文档内容与当前代码能力保持一致</p>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
