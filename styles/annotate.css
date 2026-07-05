@@ -401,6 +401,34 @@
   cursor: default;
 }
 
+.readmd-text-note .note-edit-btn {
+  position: absolute;
+  top: -10px;
+  right: 14px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  background: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  color: #999;
+  display: none;
+}
+
+.readmd-text-note.confirmed:hover .note-edit-btn,
+.readmd-text-note.confirmed:hover .note-delete-btn {
+  display: block;
+}
+
+.readmd-text-note .note-edit-btn:hover {
+  background: #3498db;
+  color: #fff;
+  border-color: #3498db;
+}
+
 .readmd-text-note .note-delete-btn {
   position: absolute;
   top: -10px;
@@ -486,6 +514,64 @@ mark[data-highlight-id]:hover {
   flex-shrink: 0;
 }
 #readmd-highlight-palette .hl-remove-btn:hover {
+  background: #e74c3c;
+  color: #fff;
+  border-color: #e74c3c;
+}
+
+/* ── Canvas Text Note Floating Palette ── */
+#readmd-textnote-palette {
+  position: fixed;
+  z-index: 2147483647;
+  display: flex;
+  gap: 4px;
+  padding: 5px 7px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  align-items: center;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#readmd-textnote-palette .tn-edit-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 26px;
+  text-align: center;
+  color: #555;
+  flex-shrink: 0;
+  transition: all 0.12s;
+}
+
+#readmd-textnote-palette .tn-edit-btn:hover {
+  background: #e8f0fe;
+  border-color: #3498db;
+  color: #3498db;
+}
+
+#readmd-textnote-palette .tn-delete-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 26px;
+  text-align: center;
+  color: #999;
+  flex-shrink: 0;
+  transition: all 0.12s;
+}
+
+#readmd-textnote-palette .tn-delete-btn:hover {
   background: #e74c3c;
   color: #fff;
   border-color: #e74c3c;

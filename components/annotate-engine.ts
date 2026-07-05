@@ -92,6 +92,8 @@ export class AnnotationEngine {
   private _annotCanvas: HTMLCanvasElement | null = null;
   private _canvasModeTextNotes: CanvasTextNote[] = [];
   private _textInputEl: HTMLTextAreaElement | null = null;
+  private _canvasTextNotePalette: HTMLElement | null = null;
+  private _dismissTextNotePaletteHandler: ((e: MouseEvent) => void) | null = null;
 
   // ── Highlight state ───────────────────────
   private _domHighlights: DOMHighlight[] = [];
@@ -459,7 +461,7 @@ export class AnnotationEngine {
     });
   }
 
-  private _showCanvasTextInput(x: number, y: number): void {
+  private _showCanvasTextInput(x: number, y: number, initialText?: string, skipUndo?: boolean): void {
     if (this._textInputEl) {
       this._textInputEl.remove();
       this._textInputEl = null;
@@ -475,10 +477,16 @@ export class AnnotationEngine {
       `font-family:system-ui,-apple-system,sans-serif;`;
     input.placeholder = 'Type note...';
 
+    if (initialText) {
+      input.value = initialText;
+    }
+
     const confirm = () => {
       const text = input.value.trim();
       if (text) {
-        this._pushUndo({ type: 'text' });
+        if (!skipUndo) {
+          this._pushUndo({ type: 'text' });
+        }
         this._canvasModeTextNotes.push({ x, y, text, color: this.color });
         const dpr = this._canvasModeDPR();
         const ctx = this._annotCanvas!.getContext('2d')!;
@@ -511,7 +519,174 @@ export class AnnotationEngine {
 
     this._canvasWrapper!.appendChild(input);
     this._textInputEl = input;
-    requestAnimationFrame(() => input.focus());
+    requestAnimationFrame(() => {
+      input.focus();
+      if (initialText) {
+        input.setSelectionRange(0, input.value.length);
+      }
+    });
+  }
+
+  // ── Canvas Text Note Hit Testing & Palette ──
+
+  /** Estimate bounding box for a canvas text note (in CSS coordinates) */
+  private _getCanvasTextNoteBounds(note: CanvasTextNote): { x: number; y: number; w: number; h: number } {
+    const lines = note.text.split('\n');
+    const lineHeight = 20;
+    const charWidth = 8; // approximate for 14px system-ui
+    const maxLineLen = Math.max(...lines.map((l) => l.length), 1);
+    return {
+      x: note.x - 4,
+      y: note.y,
+      w: Math.max(maxLineLen * charWidth + 12, 60),
+      h: Math.max(lines.length * lineHeight + 4, 24),
+    };
+  }
+
+  /** Return the index of the topmost canvas text note at (x, y), or -1 */
+  private _hitTestCanvasTextNotes(x: number, y: number): number {
+    for (let i = this._canvasModeTextNotes.length - 1; i >= 0; i--) {
+      const b = this._getCanvasTextNoteBounds(this._canvasModeTextNotes[i]);
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /** Show floating palette for a canvas text note with edit & delete options */
+  private _showCanvasTextNotePalette(_canvasX: number, _canvasY: number, noteIndex: number): void {
+    this._hideCanvasTextNotePalette();
+
+    const palette = document.createElement('div');
+    palette.id = 'readmd-textnote-palette';
+
+    // Edit button
+    const editBtn = document.createElement('span');
+    editBtn.className = 'tn-edit-btn';
+    editBtn.textContent = '✏️';
+    editBtn.title = 'Edit text';
+    editBtn.addEventListener('mousedown', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this._hideCanvasTextNotePalette();
+      this._editCanvasTextNote(noteIndex);
+    });
+    palette.appendChild(editBtn);
+
+    // Delete button
+    const delBtn = document.createElement('span');
+    delBtn.className = 'tn-delete-btn';
+    delBtn.textContent = '×';
+    delBtn.title = 'Delete text';
+    delBtn.addEventListener('mousedown', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this._hideCanvasTextNotePalette();
+      this._deleteCanvasTextNote(noteIndex);
+    });
+    palette.appendChild(delBtn);
+
+    document.body.appendChild(palette);
+
+    // Position palette near the text note (bounds are already in CSS coordinates)
+    const annotRect = this._annotCanvas!.getBoundingClientRect();
+    const note = this._canvasModeTextNotes[noteIndex];
+    const bounds = this._getCanvasTextNoteBounds(note);
+    const left = annotRect.left + bounds.x + bounds.w / 2;
+    const top = annotRect.top + bounds.y;
+
+    const paletteW = palette.offsetWidth || 72;
+    const paletteH = palette.offsetHeight || 32;
+    const margin = 10;
+
+    let px = left - paletteW / 2;
+    let py = top - paletteH - 8;
+
+    if (px < margin) px = margin;
+    if (px + paletteW > window.innerWidth - margin) {
+      px = window.innerWidth - paletteW - margin;
+    }
+    if (py < margin) py = top + bounds.h + 8;
+    if (py + paletteH > window.innerHeight - margin) {
+      py = window.innerHeight - paletteH - margin;
+    }
+
+    palette.style.cssText += `left:${px}px;top:${py}px;`;
+
+    this._canvasTextNotePalette = palette;
+
+    // Dismiss on outside click
+    this._dismissTextNotePaletteHandler = (ev: MouseEvent) => {
+      if (!palette.contains(ev.target as Node)) {
+        this._hideCanvasTextNotePalette();
+      }
+    };
+    setTimeout(() => {
+      if (this._canvasTextNotePalette === palette) {
+        document.addEventListener('mousedown', this._dismissTextNotePaletteHandler!);
+      }
+    }, 0);
+  }
+
+  private _hideCanvasTextNotePalette(): void {
+    if (this._canvasTextNotePalette) {
+      this._canvasTextNotePalette.remove();
+      this._canvasTextNotePalette = null;
+    }
+    if (this._dismissTextNotePaletteHandler) {
+      document.removeEventListener('mousedown', this._dismissTextNotePaletteHandler);
+      this._dismissTextNotePaletteHandler = null;
+    }
+  }
+
+  /** Edit an existing canvas text note */
+  private _editCanvasTextNote(noteIndex: number): void {
+    const note = this._canvasModeTextNotes[noteIndex];
+    const x = note.x;
+    const y = note.y;
+    const oldColor = note.color;
+
+    // Push undo (saves current state with old text)
+    this._pushUndo({ type: 'text' });
+
+    // Clear old text visual from canvas and remove from array
+    const bounds = this._getCanvasTextNoteBounds(note);
+    const ctx = this._annotCanvas!.getContext('2d')!;
+    ctx.clearRect(bounds.x, bounds.y, bounds.w, bounds.h);
+    this._canvasModeTextNotes.splice(noteIndex, 1);
+
+    // Redraw remaining texts (in case of overlap)
+    this._redrawCanvasModeTexts();
+
+    // Temporarily set color to the old note's color for editing
+    const savedColor = this.color;
+    this.color = oldColor;
+
+    // Show input pre-filled with existing text; skip undo since we already pushed one
+    this._showCanvasTextInput(x, y, note.text, true);
+
+    // Restore current tool color after input is shown
+    this.color = savedColor;
+  }
+
+  /** Delete an existing canvas text note */
+  private _deleteCanvasTextNote(noteIndex: number): void {
+    this._pushUndo({ type: 'text' });
+
+    const note = this._canvasModeTextNotes[noteIndex];
+    const bounds = this._getCanvasTextNoteBounds(note);
+
+    // Remove from array
+    this._canvasModeTextNotes.splice(noteIndex, 1);
+
+    // Clear the text area on canvas
+    const ctx = this._annotCanvas!.getContext('2d')!;
+    ctx.clearRect(bounds.x, bounds.y, bounds.w, bounds.h);
+
+    // Redraw remaining texts (in case of overlap with deleted note)
+    this._redrawCanvasModeTexts();
+    this._updateToolbarActive();
   }
 
   // ── Event Binding ──────────────────────────
@@ -578,6 +753,14 @@ export class AnnotationEngine {
 
     if (this.tool === 'text') {
       const pos = this._getCanvasPos(e);
+      // In canvas mode, check if clicking on an existing text note
+      if (this.mode === 'canvas') {
+        const hitIndex = this._hitTestCanvasTextNotes(pos.x, pos.y);
+        if (hitIndex >= 0) {
+          this._showCanvasTextNotePalette(pos.x, pos.y, hitIndex);
+          return;
+        }
+      }
       this._addTextNote(pos.x, pos.y);
       return;
     }
@@ -830,9 +1013,34 @@ export class AnnotationEngine {
     note.style.top = y + 'px';
     note.dataset.noteId = String(this.nextNoteId++);
 
+    const makeEditable = () => {
+      note.contentEditable = 'true';
+      note.classList.remove('confirmed');
+      note.focus();
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(note);
+      selection!.removeAllRanges();
+      selection!.addRange(range);
+    };
+
+    // Edit button
+    const editBtn = document.createElement('span');
+    editBtn.className = 'note-edit-btn';
+    editBtn.textContent = '✎';
+    editBtn.title = 'Edit text';
+    editBtn.addEventListener('mousedown', (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      makeEditable();
+    });
+    note.appendChild(editBtn);
+
+    // Delete button
     const delBtn = document.createElement('span');
     delBtn.className = 'note-delete-btn';
     delBtn.textContent = '×';
+    delBtn.title = 'Delete text';
     delBtn.addEventListener('mousedown', (ev) => {
       ev.stopPropagation();
       ev.preventDefault();
@@ -840,8 +1048,15 @@ export class AnnotationEngine {
     });
     note.appendChild(delBtn);
 
+    // Double-click to re-edit confirmed notes
+    note.addEventListener('dblclick', () => {
+      if (note.classList.contains('confirmed')) {
+        makeEditable();
+      }
+    });
+
     note.addEventListener('blur', () => {
-      if (note.textContent!.trim() === '') {
+      if (note.textContent!.replace(delBtn.textContent!, '').replace(editBtn.textContent!, '').trim() === '') {
         this._removeTextNote(note);
       } else {
         note.classList.add('confirmed');
@@ -1355,15 +1570,64 @@ export class AnnotationEngine {
         note.textContent = ts.text;
         note.dataset.noteId = ts.noteId;
 
+        const makeEditable = () => {
+          note.contentEditable = 'true';
+          note.classList.remove('confirmed');
+          note.focus();
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(note);
+          sel!.removeAllRanges();
+          sel!.addRange(range);
+        };
+
+        // Edit button
+        const editBtn = document.createElement('span');
+        editBtn.className = 'note-edit-btn';
+        editBtn.textContent = '✎';
+        editBtn.title = 'Edit text';
+        editBtn.addEventListener('mousedown', (ev) => {
+          ev.stopPropagation();
+          ev.preventDefault();
+          makeEditable();
+        });
+        note.appendChild(editBtn);
+
+        // Delete button
         const delBtn = document.createElement('span');
         delBtn.className = 'note-delete-btn';
         delBtn.textContent = '×';
+        delBtn.title = 'Delete text';
         delBtn.addEventListener('mousedown', (ev) => {
           ev.stopPropagation();
           ev.preventDefault();
           this._removeTextNote(note);
         });
         note.appendChild(delBtn);
+
+        // Double-click to re-edit
+        note.addEventListener('dblclick', () => {
+          if (note.classList.contains('confirmed')) {
+            makeEditable();
+          }
+        });
+
+        note.addEventListener('pointerdown', (ev) => {
+          ev.stopPropagation();
+        });
+
+        // Blur handler for when editing
+        note.addEventListener('blur', () => {
+          if (note.contentEditable === 'true') {
+            const btnTexts = (editBtn.textContent || '') + (delBtn.textContent || '');
+            if ((note.textContent || '').replace(btnTexts, '').trim() === '') {
+              this._removeTextNote(note);
+            } else {
+              note.classList.add('confirmed');
+              note.contentEditable = 'false';
+            }
+          }
+        });
 
         this.layer.appendChild(note);
         this.textNotes.push({ el: note, x: ts.x, y: ts.y, text: ts.text });
@@ -1662,6 +1926,7 @@ export class AnnotationEngine {
 
     // Clean up highlights
     this._hideHighlightPalette();
+    this._hideCanvasTextNotePalette();
     this._removeAllHighlightsFromDOM();
     this._domHighlights = [];
     if (this._onContentMouseUp && this.contentContainer) {
