@@ -107,17 +107,16 @@ Export your annotated reading as a self-contained file:
 
 ---
 
-## 📸 Screenshots
+## 🎬 Demo Video
 
-<!-- TODO: Add actual screenshots -->
+<p align="center">
+  <video controls width="720" poster="" preload="metadata">
+    <source src="https://zhuoshui-AI.github.io/Readmd/演示视频.mp4" type="video/mp4">
+    Your browser does not support video playback. <a href="https://zhuoshui-AI.github.io/Readmd/演示视频.mp4">Download the demo video</a>.
+  </video>
+</p>
 
-<!--
-1. Before/After: Original webpage vs Readmd reading mode
-2. Canvas annotation mode with drawings and text notes
-3. DOM highlight mode with floating color palette
-4. Popup settings panel
-5. Exported PDF with annotations
--->
+> Quick walkthrough showing Readmd's core features: immersive reading, annotation tools (pen, highlighter, eraser, text notes), and export to HTML/PDF.
 
 ---
 

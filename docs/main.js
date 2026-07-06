@@ -6,6 +6,7 @@ const i18n = {
     pageTitle: 'Readmd 沉浸式阅读 & 批注器',
     toc: {
       overview: '概览',
+      demo: '演示视频',
       install: '安装',
       usage: '使用流程',
       shortcuts: '快捷键',
@@ -22,6 +23,11 @@ const i18n = {
       desc: 'Readmd 是一款集沉浸式阅读与全文批注于一体的浏览器扩展。自动提取正文、一键批注标注、导出 HTML/PDF，让阅读网页像读书一样专注。',
       install: '安装指南',
       features: '功能概览'
+    },
+    demo: {
+      title: '🎬 演示视频',
+      desc: '快速了解 Readmd 的核心功能与使用流程：',
+      fallback: '您的浏览器不支持视频播放，请<a href="演示视频.mp4">下载视频文件</a>查看。'
     },
     overview: {
       title: '1. 功能概览',
@@ -177,6 +183,7 @@ const i18n = {
     pageTitle: 'Readmd Immersive Reader & Annotator',
     toc: {
       overview: 'Overview',
+      demo: 'Demo Video',
       install: 'Install',
       usage: 'Usage',
       shortcuts: 'Shortcuts',
@@ -193,6 +200,11 @@ const i18n = {
       desc: 'Readmd is an all-in-one immersive reading and annotation browser extension. Auto-extract content, annotate freely, and export to HTML/PDF — making web reading as focused as reading a book.',
       install: 'Install Guide',
       features: 'Features'
+    },
+    demo: {
+      title: '🎬 Demo Video',
+      desc: 'A quick overview of Readmd\'s core features and workflow:',
+      fallback: 'Your browser does not support video playback. <a href="演示视频.mp4">Download the video</a> to view it.'
     },
     overview: {
       title: '1. Features',
