@@ -87,6 +87,8 @@ export class AnnotationEngine {
 
   mode: 'dom' | 'canvas' = 'dom';
   private _enteringCanvasMode = false;
+  private _refreshingCanvas = false;
+  private _pendingRefresh = false;
   private _canvasWrapper: HTMLElement | null = null;
   private _contentCanvas: HTMLCanvasElement | null = null;
   private _annotCanvas: HTMLCanvasElement | null = null;
@@ -107,12 +109,20 @@ export class AnnotationEngine {
   private ctx!: CanvasRenderingContext2D;
   private toolbar!: HTMLDivElement;
 
+  // Offscreen canvas for undo snapshots — keeps willReadFrequently isolated
+  // so the main drawing canvas can be GPU-accelerated
+  private _undoSnapshotCanvas: HTMLCanvasElement | null = null;
+  private _undoSnapshotCtx: CanvasRenderingContext2D | null = null;
+
   private _onPointerDown!: (e: PointerEvent) => void;
   private _onPointerMove!: (e: PointerEvent) => void;
   private _onPointerUp!: (e: PointerEvent) => void;
   private _onKeyDown!: (e: KeyboardEvent) => void;
   private _onDocumentClick!: (e: MouseEvent) => void;
   private _resizeObserver: ResizeObserver | null = null;
+
+  // Cached at stroke start to avoid getBoundingClientRect on every move
+  private _cachedCanvasRect: { left: number; top: number; width: number; height: number } | null = null;
 
   constructor(overlay: HTMLElement, contentContainer: HTMLElement) {
     this.overlay = overlay;
@@ -300,7 +310,7 @@ export class AnnotationEngine {
     if (this.mode === 'canvas') {
       if (!this._annotCanvas) return;
       const dpr = this._canvasModeDPR();
-      this.ctx = this._annotCanvas.getContext('2d', { willReadFrequently: true })!;
+      this.ctx = this._annotCanvas.getContext('2d')!;
       this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.scale(dpr, dpr);
       this.ctx.lineCap = 'round';
@@ -320,11 +330,16 @@ export class AnnotationEngine {
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
 
-    this.ctx = this.canvas.getContext('2d', { willReadFrequently: true })!;
+    // No willReadFrequently — GPU-accelerated drawing for low latency
+    this.ctx = this.canvas.getContext('2d')!;
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(dpr, dpr);
     this.ctx.lineCap = 'round';
     this.ctx.lineJoin = 'round';
+
+    // Invalidate the offscreen undo canvas so it gets recreated at next snapshot
+    this._undoSnapshotCanvas = null;
+    this._undoSnapshotCtx = null;
 
     if (this.layer) {
       this.layer.style.width = w + 'px';
@@ -442,6 +457,59 @@ export class AnnotationEngine {
     this._canvasModeTextNotes = [];
     this.layer.style.cursor = '';
     this.setTool('none');
+  }
+
+  /** Refresh the canvas snapshot — used when font size / layout / theme changes */
+  async refreshCanvasSnapshot(): Promise<void> {
+    if (this.mode !== 'canvas') return;
+
+    // If a refresh is already in progress, mark pending and skip
+    if (this._refreshingCanvas) {
+      this._pendingRefresh = true;
+      return;
+    }
+
+    this._refreshingCanvas = true;
+    this._pendingRefresh = false;
+
+    try {
+      // Save annotations before destroying the canvas
+      let savedAnnotImage: HTMLImageElement | null = null;
+      if (this._annotCanvas) {
+        const dataUrl = this._annotCanvas.toDataURL('image/png');
+        savedAnnotImage = await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = dataUrl;
+        });
+      }
+      const savedTextNotes = [...this._canvasModeTextNotes];
+      const savedTool = this.tool;
+
+      // Exit and re-enter canvas mode to re-render content with updated CSS
+      this.exitCanvasMode();
+      await this.enterCanvasMode();
+
+      // Restore annotations onto the new canvas
+      if (savedAnnotImage && this._annotCanvas) {
+        const actx = this._annotCanvas.getContext('2d')!;
+        actx.drawImage(savedAnnotImage, 0, 0);
+      }
+      this._canvasModeTextNotes = savedTextNotes;
+      this._redrawCanvasModeTexts();
+      this.setTool(savedTool);
+      this._updateToolbarActive();
+    } finally {
+      this._refreshingCanvas = false;
+      // If another refresh was requested while this one was running, do one more
+      if (this._pendingRefresh) {
+        this._pendingRefresh = false;
+        this.refreshCanvasSnapshot().catch((err: Error) => {
+          console.error('Failed pending canvas refresh:', err);
+        });
+      }
+    }
   }
 
   private _redrawCanvasModeTexts(): void {
@@ -717,14 +785,13 @@ export class AnnotationEngine {
   }
 
   private _getCanvasPos(e: PointerEvent): { x: number; y: number } {
+    const rect = this._cachedCanvasRect;
+    if (rect) {
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
     const activeCanvas = this.mode === 'canvas' ? this._annotCanvas : this.canvas;
-    const rect = activeCanvas!.getBoundingClientRect();
-    // rect is already in viewport coordinates — clientX/Y minus rect position
-    // gives canvas-relative coordinates directly (scroll is already factored in)
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
+    const fallbackRect = activeCanvas!.getBoundingClientRect();
+    return { x: e.clientX - fallbackRect.left, y: e.clientY - fallbackRect.top };
   }
 
   private _getScrollContainer(): HTMLElement | null {
@@ -771,10 +838,33 @@ export class AnnotationEngine {
     }
 
     this.isDrawing = true;
+
+    // Cache canvas rect once per stroke — avoids getBoundingClientRect on every move
+    const activeCanvas = this.mode === 'canvas' ? this._annotCanvas : this.canvas;
+    this._cachedCanvasRect = activeCanvas!.getBoundingClientRect();
+
     const pos = this._getCanvasPos(e);
     this.lastPoint = pos;
 
+    // Set context properties ONCE per stroke — not on every move event
     const ctx = this.ctx;
+    if (this.tool === 'highlight') {
+      ctx.globalAlpha = this.opacity * 0.25;
+      ctx.lineWidth = HIGHLIGHTER_WIDTH;
+      ctx.strokeStyle = this.color;
+      ctx.globalCompositeOperation = 'source-over';
+    } else {
+      ctx.lineWidth = this.tool === 'eraser' ? this.lineWidth * 2 : this.lineWidth;
+      ctx.strokeStyle = this.color;
+      if (this.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = this.opacity;
+      }
+    }
+
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
     this._pushUndo({ type: 'stroke' });
@@ -796,31 +886,14 @@ export class AnnotationEngine {
     if (!this.isDrawing) return;
     if (this.tool === 'none' || this.tool === 'text') return;
 
-    const pos = this._getCanvasPos(e);
+    // Use cached rect from pointerdown — avoids getBoundingClientRect every frame
+    const rect = this._cachedCanvasRect!;
+    const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const last = this.lastPoint!;
+
     const ctx = this.ctx;
-
-    if (this.tool === 'highlight') {
-      // Fluorescent highlighter: wide, very translucent
-      ctx.globalAlpha = this.opacity * 0.25;
-      ctx.lineWidth = HIGHLIGHTER_WIDTH;
-      ctx.strokeStyle = this.color;
-      ctx.globalCompositeOperation = 'source-over';
-    } else {
-      ctx.lineWidth = this.lineWidth;
-      ctx.strokeStyle = this.color;
-
-      if (this.tool === 'eraser') {
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.strokeStyle = 'rgba(0,0,0,1)';
-        ctx.globalAlpha = 1;
-      } else {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = this.opacity;
-      }
-    }
-
     ctx.beginPath();
-    ctx.moveTo(this.lastPoint!.x, this.lastPoint!.y);
+    ctx.moveTo(last.x, last.y);
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
 
@@ -841,6 +914,7 @@ export class AnnotationEngine {
     if (!this.isDrawing) return;
     this.isDrawing = false;
     this.lastPoint = null;
+    this._cachedCanvasRect = null;
     this.ctx.globalCompositeOperation = 'source-over';
     this.ctx.globalAlpha = 1.0;
   }
@@ -1483,17 +1557,34 @@ export class AnnotationEngine {
 
   // ── Undo / Redo ────────────────────────────
 
+  /** Lazily create an offscreen canvas for undo snapshots with willReadFrequently */
+  private _ensureUndoSnapshotCanvas(): CanvasRenderingContext2D {
+    const { w, h } = this._activeCanvasSize();
+    if (!this._undoSnapshotCanvas || this._undoSnapshotCanvas.width !== w || this._undoSnapshotCanvas.height !== h) {
+      this._undoSnapshotCanvas = document.createElement('canvas');
+      this._undoSnapshotCanvas.width = w;
+      this._undoSnapshotCanvas.height = h;
+      this._undoSnapshotCtx = this._undoSnapshotCanvas.getContext('2d', { willReadFrequently: true })!;
+    }
+    return this._undoSnapshotCtx!;
+  }
+
   private _pushUndo(meta: { type: string }): void {
     const { w, h } = this._activeCanvasSize();
+
+    // Use offscreen canvas for getImageData — keeps main canvas GPU-accelerated
+    const offCtx = this._ensureUndoSnapshotCanvas();
+    const activeCanvas = this._activeCanvas();
+    offCtx.drawImage(activeCanvas, 0, 0);
+
     const snapshot: UndoSnapshot = {
-      canvasData: this.ctx.getImageData(0, 0, w, h),
+      canvasData: offCtx.getImageData(0, 0, w, h),
       textState: this.textNotes.map((n) => ({
         x: n.x,
         y: n.y,
         text: n.el.textContent || '',
         noteId: n.el.dataset.noteId || '',
       })),
-      // Also snapshot canvas-mode text notes so undo/redo tracks them
       canvasTextNotes: this._canvasModeTextNotes.map((n) => ({ ...n })),
       domHighlights: this._serializeHighlights(),
       ...meta,
@@ -1511,8 +1602,12 @@ export class AnnotationEngine {
     if (this.undoStack.length === 0) return;
 
     const { w, h } = this._activeCanvasSize();
+    // Use offscreen canvas for snapshot — keeps main canvas GPU-accelerated
+    const offCtx = this._ensureUndoSnapshotCanvas();
+    offCtx.drawImage(this._activeCanvas(), 0, 0);
+
     const current: UndoSnapshot = {
-      canvasData: this.ctx.getImageData(0, 0, w, h),
+      canvasData: offCtx.getImageData(0, 0, w, h),
       textState: this.textNotes.map((n) => ({
         x: n.x, y: n.y,
         text: n.el.textContent || '',
@@ -1533,8 +1628,12 @@ export class AnnotationEngine {
     if (this.redoStack.length === 0) return;
 
     const { w, h } = this._activeCanvasSize();
+    // Use offscreen canvas for snapshot — keeps main canvas GPU-accelerated
+    const offCtx = this._ensureUndoSnapshotCanvas();
+    offCtx.drawImage(this._activeCanvas(), 0, 0);
+
     const current: UndoSnapshot = {
-      canvasData: this.ctx.getImageData(0, 0, w, h),
+      canvasData: offCtx.getImageData(0, 0, w, h),
       textState: this.textNotes.map((n) => ({
         x: n.x, y: n.y,
         text: n.el.textContent || '',
@@ -1947,9 +2046,14 @@ export class AnnotationEngine {
     this.isPanning = false;
     this.panStart = null;
     this.lastPoint = null;
+    this._cachedCanvasRect = null;
+    this._undoSnapshotCanvas = null;
+    this._undoSnapshotCtx = null;
     this.cursorMode = 'draw';
     this.mode = 'dom';
     this.tool = 'none';
     this._enteringCanvasMode = false;
+    this._refreshingCanvas = false;
+    this._pendingRefresh = false;
   }
 }

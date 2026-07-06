@@ -55,6 +55,10 @@ export default defineContentScript({
 
     restoreSettings();
 
+    // Reset mode states on fresh page load — content script always starts inactive
+    readerModeStorage.setValue(false);
+    annotateModeStorage.setValue(false);
+
     // ── Message Handling ──────────────────────
 
     browser.runtime.onMessage.addListener((request: any) => {
@@ -81,13 +85,24 @@ export default defineContentScript({
 
         case 'updateTheme': {
           readerMode.applyTheme(request.theme);
+          if (annotateEngine && annotateEngine.mode === 'canvas') {
+            annotateEngine.refreshCanvasSnapshot().catch((err: Error) => {
+              console.error('Failed to refresh canvas after theme change:', err);
+            });
+          }
           break;
         }
 
         case 'updateLayout': {
           readerMode.applyLayout(request.layout);
           if (annotateEngine) {
-            setTimeout(() => annotateEngine!.syncSize(), 100);
+            if (annotateEngine.mode === 'canvas') {
+              annotateEngine.refreshCanvasSnapshot().catch((err: Error) => {
+                console.error('Failed to refresh canvas after layout change:', err);
+              });
+            } else {
+              setTimeout(() => annotateEngine!.syncSize(), 100);
+            }
           }
           break;
         }
@@ -95,7 +110,13 @@ export default defineContentScript({
         case 'updateFontSize': {
           readerMode.applyFontSize(request.fontSize);
           if (annotateEngine) {
-            setTimeout(() => annotateEngine!.syncSize(), 100);
+            if (annotateEngine.mode === 'canvas') {
+              annotateEngine.refreshCanvasSnapshot().catch((err: Error) => {
+                console.error('Failed to refresh canvas after font size change:', err);
+              });
+            } else {
+              setTimeout(() => annotateEngine!.syncSize(), 100);
+            }
           }
           break;
         }

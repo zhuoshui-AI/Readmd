@@ -139,9 +139,29 @@ layoutSelect.addEventListener('change', async (e) => {
   sendToContentScript({ action: 'updateLayout', layout: val });
 });
 
+let fontSizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const FONT_SIZE_DEBOUNCE_MS = 180;
+
+function sendFontSizeUpdate(val: number): void {
+  sendToContentScript({ action: 'updateFontSize', fontSize: val });
+}
+
 fontSizeInput.addEventListener('input', async (e) => {
   const val = Number((e.target as HTMLInputElement).value);
   fontSizeValue.textContent = `${val}px`;
   await fontSize.setValue(val);
-  sendToContentScript({ action: 'updateFontSize', fontSize: val });
+
+  // Debounce: only send to content script after user stops dragging
+  if (fontSizeDebounceTimer) clearTimeout(fontSizeDebounceTimer);
+  fontSizeDebounceTimer = setTimeout(() => sendFontSizeUpdate(val), FONT_SIZE_DEBOUNCE_MS);
+});
+
+// Fire immediately when user releases the slider (change event)
+fontSizeInput.addEventListener('change', async (e) => {
+  const val = Number((e.target as HTMLInputElement).value);
+  if (fontSizeDebounceTimer) {
+    clearTimeout(fontSizeDebounceTimer);
+    fontSizeDebounceTimer = null;
+  }
+  sendFontSizeUpdate(val);
 });
