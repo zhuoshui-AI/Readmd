@@ -144,15 +144,13 @@ async function handleGenerateHTML(msg: HTMLMessage): Promise<void> {
 </html>`;
   }
 
-  // Download via Blob URL — avoids encodeURIComponent overhead on large files
-  const blob = new Blob([fullHTML], { type: 'text/html;charset=utf-8' });
-  const blobUrl = URL.createObjectURL(blob);
+  // Use data URL — Blob URL unavailable in service worker (MV3)
+  const dataUrl = `data:text/html;base64,${btoa(unescape(encodeURIComponent(fullHTML)))}`;
   await browser.downloads.download({
-    url: blobUrl,
+    url: dataUrl,
     filename: 'readmd-export.html',
     saveAs: true,
   });
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
 }
 
 // ── PDF Generation ───────────────────────────────
@@ -186,14 +184,11 @@ async function handleGeneratePDF(msg: PDFMessage): Promise<void> {
     heightLeft -= pageHeight;
   }
 
-  // Use Blob output instead of datauristring — avoids 33% base64 overhead
-  const pdfBlob = pdf.output('blob');
-  const blobUrl = URL.createObjectURL(pdfBlob);
+  // datauristring works in service worker (MV3); JPEG input already compressed
+  const pdfData = pdf.output('datauristring');
   await browser.downloads.download({
-    url: blobUrl,
+    url: pdfData,
     filename: 'readmd-export.pdf',
     saveAs: true,
   });
-  // Clean up blob URL after a short delay
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
 }

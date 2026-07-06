@@ -89,6 +89,10 @@ export class AnnotationEngine {
   private _enteringCanvasMode = false;
   private _refreshingCanvas = false;
   private _pendingRefresh = false;
+
+  // Saved overlay overflow styles — restored on exitCanvasMode
+  private _savedOverlayOverflowX: string | null = null;
+  private _savedOverlayOverflowY: string | null = null;
   private _canvasWrapper: HTMLElement | null = null;
   private _contentCanvas: HTMLCanvasElement | null = null;
   private _annotCanvas: HTMLCanvasElement | null = null;
@@ -181,7 +185,7 @@ export class AnnotationEngine {
         <span class="annotate-color-dot" style="background:${this.color};opacity:${this.opacity}"></span>
         <label class="annotate-color-pick-btn" data-tooltip="取色盘">
           🎨
-          <input type="color" class="annotate-color-pick-input" value="${this.color}">
+          <input type="color" class="annotate-color-pick-input" value="${this.color.substring(0, 7)}">
         </label>
       </div>
       <span class="annotate-separator"></span>
@@ -233,7 +237,10 @@ export class AnnotationEngine {
 
     if (colorPickInput) {
       colorPickInput.addEventListener('input', () => {
-        this.setColor(colorPickInput.value);
+        // Preserve alpha channel — color picker only returns 6-digit hex
+        const hex6 = colorPickInput.value;
+        const alpha = this.color.length === 9 ? this.color.substring(7) : '';
+        this.setColor(hex6 + alpha);
       });
     }
 
@@ -373,9 +380,17 @@ export class AnnotationEngine {
 
       if (!this._enteringCanvasMode) return;
 
+      // Disable overlay scrolling during canvas mode — canvas wrapper handles it
+      const overlayStyle = getComputedStyle(this.overlay);
+      this._savedOverlayOverflowX = this.overlay.style.overflowX || overlayStyle.overflowX;
+      this._savedOverlayOverflowY = this.overlay.style.overflowY || overlayStyle.overflowY;
+      this.overlay.style.overflowX = 'hidden';
+      this.overlay.style.overflowY = 'hidden';
+
       this._canvasWrapper = document.createElement('div');
       this._canvasWrapper.id = 'readmd-canvas-wrapper';
-      this._canvasWrapper.style.cssText = 'position:relative;width:100%;overflow:auto;';
+      this._canvasWrapper.style.cssText =
+        'position:relative;width:100%;height:100%;overflow:auto;';
 
       const cssW = Math.round(snapshotCanvas.width / 2);
       const cssH = Math.round(snapshotCanvas.height / 2);
@@ -450,6 +465,16 @@ export class AnnotationEngine {
     this._contentCanvas = null;
     this._annotCanvas = null;
 
+    // Restore overlay scroll behavior
+    if (this._savedOverlayOverflowX !== null) {
+      this.overlay.style.overflowX = this._savedOverlayOverflowX;
+      this._savedOverlayOverflowX = null;
+    }
+    if (this._savedOverlayOverflowY !== null) {
+      this.overlay.style.overflowY = this._savedOverlayOverflowY;
+      this._savedOverlayOverflowY = null;
+    }
+
     this.contentContainer.style.display = '';
     this.layer.style.display = '';
     this.mode = 'dom';
@@ -515,6 +540,12 @@ export class AnnotationEngine {
   private _redrawCanvasModeTexts(): void {
     if (!this._annotCanvas) return;
     const ctx = this._annotCanvas.getContext('2d')!;
+    // Ensure safe context state — eraser or other tools may have left
+    // globalCompositeOperation at 'destination-out', which would cause
+    // fillText to erase instead of draw.
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
     this._canvasModeTextNotes.forEach((n) => {
       ctx.save();
       ctx.font = '14px system-ui, -apple-system, sans-serif';
@@ -527,11 +558,12 @@ export class AnnotationEngine {
       });
       ctx.restore();
     });
+    ctx.restore();
   }
 
   private _showCanvasTextInput(x: number, y: number, initialText?: string, skipUndo?: boolean): void {
     if (this._textInputEl) {
-      this._textInputEl.remove();
+      if (this._textInputEl.parentNode) this._textInputEl.remove();
       this._textInputEl = null;
     }
 
@@ -559,6 +591,8 @@ export class AnnotationEngine {
         const dpr = this._canvasModeDPR();
         const ctx = this._annotCanvas!.getContext('2d')!;
         ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
         ctx.font = '14px system-ui, -apple-system, sans-serif';
         ctx.fillStyle = this.color;
         const lines = text.split('\n');
@@ -601,13 +635,23 @@ export class AnnotationEngine {
   private _getCanvasTextNoteBounds(note: CanvasTextNote): { x: number; y: number; w: number; h: number } {
     const lines = note.text.split('\n');
     const lineHeight = 20;
-    const charWidth = 8; // approximate for 14px system-ui
-    const maxLineLen = Math.max(...lines.map((l) => l.length), 1);
+
+    // Use measureText for accurate width — charWidth estimate fails for CJK
+    const ctx = this._annotCanvas!.getContext('2d')!;
+    ctx.save();
+    ctx.font = '14px system-ui, -apple-system, sans-serif';
+    let maxWidth = 0;
+    for (const line of lines) {
+      const m = ctx.measureText(line);
+      if (m.width > maxWidth) maxWidth = m.width;
+    }
+    ctx.restore();
+
     return {
-      x: note.x - 4,
-      y: note.y,
-      w: Math.max(maxLineLen * charWidth + 12, 60),
-      h: Math.max(lines.length * lineHeight + 4, 24),
+      x: note.x - 6,
+      y: note.y - 2,
+      w: Math.max(maxWidth + 16, 60),
+      h: Math.max(lines.length * lineHeight + 10, 28),
     };
   }
 
@@ -710,6 +754,7 @@ export class AnnotationEngine {
 
   /** Edit an existing canvas text note */
   private _editCanvasTextNote(noteIndex: number): void {
+    if (noteIndex < 0 || noteIndex >= this._canvasModeTextNotes.length) return;
     const note = this._canvasModeTextNotes[noteIndex];
     const x = note.x;
     const y = note.y;
@@ -721,7 +766,10 @@ export class AnnotationEngine {
     // Clear old text visual from canvas and remove from array
     const bounds = this._getCanvasTextNoteBounds(note);
     const ctx = this._annotCanvas!.getContext('2d')!;
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
     ctx.clearRect(bounds.x, bounds.y, bounds.w, bounds.h);
+    ctx.restore();
     this._canvasModeTextNotes.splice(noteIndex, 1);
 
     // Redraw remaining texts (in case of overlap)
@@ -740,6 +788,8 @@ export class AnnotationEngine {
 
   /** Delete an existing canvas text note */
   private _deleteCanvasTextNote(noteIndex: number): void {
+    if (noteIndex < 0 || noteIndex >= this._canvasModeTextNotes.length) return;
+
     this._pushUndo({ type: 'text' });
 
     const note = this._canvasModeTextNotes[noteIndex];
@@ -748,9 +798,12 @@ export class AnnotationEngine {
     // Remove from array
     this._canvasModeTextNotes.splice(noteIndex, 1);
 
-    // Clear the text area on canvas
+    // Clear the text area on canvas — ensure clean context state first
     const ctx = this._annotCanvas!.getContext('2d')!;
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
     ctx.clearRect(bounds.x, bounds.y, bounds.w, bounds.h);
+    ctx.restore();
 
     // Redraw remaining texts (in case of overlap with deleted note)
     this._redrawCanvasModeTexts();
@@ -1056,7 +1109,7 @@ export class AnnotationEngine {
       colorDot.style.background = this.color;
       colorDot.style.opacity = String(this.opacity);
     }
-    if (colorPickInput) colorPickInput.value = this.color;
+    if (colorPickInput) colorPickInput.value = this.color.substring(0, 7);
 
     // Refresh opacity slider
     const opacitySlider = this.toolbar.querySelector('.annotate-opacity-slider') as HTMLInputElement;
@@ -2016,7 +2069,7 @@ export class AnnotationEngine {
     }
 
     if (this._textInputEl) {
-      this._textInputEl.remove();
+      if (this._textInputEl.parentNode) this._textInputEl.remove();
       this._textInputEl = null;
     }
 
@@ -2035,6 +2088,16 @@ export class AnnotationEngine {
 
     if (this.toolbar) { this.toolbar.remove(); this.toolbar = null!; }
     if (this.layer) { this.layer.remove(); this.layer = null!; }
+    // Restore overlay scroll behavior if still overridden
+    if (this._savedOverlayOverflowX !== null) {
+      this.overlay.style.overflowX = this._savedOverlayOverflowX;
+      this._savedOverlayOverflowX = null;
+    }
+    if (this._savedOverlayOverflowY !== null) {
+      this.overlay.style.overflowY = this._savedOverlayOverflowY;
+      this._savedOverlayOverflowY = null;
+    }
+
     if (this._canvasWrapper) { this._canvasWrapper.remove(); this._canvasWrapper = null; }
 
     this._contentCanvas = null;

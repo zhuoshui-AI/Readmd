@@ -375,6 +375,8 @@ export class ReaderMode {
 
     this.contentContainer = document.createElement('div');
     this.contentContainer.id = 'readmd-content';
+    // Set initial font-size explicitly — html2canvas can't resolve inherited CSS variables
+    this.contentContainer.style.fontSize = '16px';
     this.overlay.appendChild(this.contentContainer);
     document.body.appendChild(this.overlay);
 
@@ -402,6 +404,9 @@ export class ReaderMode {
           this.overlay.setAttribute('data-theme', t);
           this.overlay.setAttribute('data-layout', l);
           this.overlay.style.setProperty('--readmd-font-size', `${fz}px`);
+          if (this.contentContainer) {
+            this.contentContainer.style.fontSize = `${fz}px`;
+          }
         }
       },
     );
@@ -497,6 +502,11 @@ export class ReaderMode {
     if (!this.overlay) return;
     const beforeResize = this.isActive ? this.getReadingProgressSnapshot() : null;
     this.overlay.style.setProperty('--readmd-font-size', `${fz}px`);
+    // Also set directly on content container — html2canvas can't resolve
+    // inherited CSS variables, so it needs an explicit font-size
+    if (this.contentContainer) {
+      this.contentContainer.style.fontSize = `${fz}px`;
+    }
     if (beforeResize) {
       this.restoreReadingProgress(beforeResize);
     }
