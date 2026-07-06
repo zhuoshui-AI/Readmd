@@ -144,13 +144,15 @@ async function handleGenerateHTML(msg: HTMLMessage): Promise<void> {
 </html>`;
   }
 
-  // Download via browser.downloads API
-  const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(fullHTML)}`;
+  // Download via Blob URL — avoids encodeURIComponent overhead on large files
+  const blob = new Blob([fullHTML], { type: 'text/html;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blob);
   await browser.downloads.download({
-    url: dataUrl,
+    url: blobUrl,
     filename: 'readmd-export.html',
     saveAs: true,
   });
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
 }
 
 // ── PDF Generation ───────────────────────────────
@@ -166,7 +168,7 @@ interface PDFMessage {
 async function handleGeneratePDF(msg: PDFMessage): Promise<void> {
   const { canvasDataURL, canvasWidth, canvasHeight } = msg;
 
-  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdf = new jsPDF('p', 'mm', 'a4', true);
   const imgWidth = 210; // A4 width in mm
   const pageHeight = 297; // A4 height in mm
   const imgHeight = (canvasHeight * imgWidth) / canvasWidth;
@@ -174,21 +176,24 @@ async function handleGeneratePDF(msg: PDFMessage): Promise<void> {
   let heightLeft = imgHeight;
   let position = 0;
 
-  pdf.addImage(canvasDataURL, 'PNG', 0, position, imgWidth, imgHeight);
+  pdf.addImage(canvasDataURL, 'JPEG', 0, position, imgWidth, imgHeight);
   heightLeft -= pageHeight;
 
   while (heightLeft > 0) {
     position = heightLeft - imgHeight;
     pdf.addPage();
-    pdf.addImage(canvasDataURL, 'PNG', 0, position, imgWidth, imgHeight);
+    pdf.addImage(canvasDataURL, 'JPEG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
   }
 
-  const pdfData = pdf.output('datauristring');
-  // Convert data URI to download
+  // Use Blob output instead of datauristring — avoids 33% base64 overhead
+  const pdfBlob = pdf.output('blob');
+  const blobUrl = URL.createObjectURL(pdfBlob);
   await browser.downloads.download({
-    url: pdfData,
+    url: blobUrl,
     filename: 'readmd-export.pdf',
     saveAs: true,
   });
+  // Clean up blob URL after a short delay
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
 }

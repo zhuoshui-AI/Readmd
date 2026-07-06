@@ -1679,7 +1679,7 @@ export class AnnotationEngine {
     const mctx = merged.getContext('2d')!;
     mctx.drawImage(this._contentCanvas!, 0, 0);
     mctx.drawImage(this._annotCanvas!, 0, 0);
-    const imgDataUrl = merged.toDataURL('image/png');
+    const imgDataUrl = merged.toDataURL('image/jpeg', 0.85);
 
     await browser.runtime.sendMessage({
       action: 'generateHTML',
@@ -1694,7 +1694,7 @@ export class AnnotationEngine {
 
   private async _exportDOMHTML(): Promise<void> {
     const contentHTML = this.contentContainer.innerHTML;
-    const canvasDataUrl = this.canvas.toDataURL('image/png');
+    const canvasDataUrl = this.canvas.toDataURL('image/jpeg', 0.92);
     const canvasRect = this.canvas.getBoundingClientRect();
 
     const notes = this.textNotes.map((n) => {
@@ -1737,7 +1737,7 @@ export class AnnotationEngine {
     const mctx = merged.getContext('2d')!;
     mctx.drawImage(this._contentCanvas!, 0, 0);
     mctx.drawImage(this._annotCanvas!, 0, 0);
-    const imgDataUrl = merged.toDataURL('image/png');
+    const imgDataUrl = merged.toDataURL('image/jpeg', 0.85);
 
     await browser.runtime.sendMessage({
       action: 'generatePDF',
@@ -1820,7 +1820,7 @@ export class AnnotationEngine {
 
       document.body.removeChild(wrapper);
 
-      const imgDataUrl = contentCanvas.toDataURL('image/png');
+      const imgDataUrl = contentCanvas.toDataURL('image/jpeg', 0.88);
 
       await browser.runtime.sendMessage({
         action: 'generatePDF',
