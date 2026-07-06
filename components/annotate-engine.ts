@@ -356,7 +356,7 @@ export class AnnotationEngine {
         backgroundColor: bgColor,
       });
 
-      if (!this._enteringCanvasMode || this.mode === 'canvas') return;
+      if (!this._enteringCanvasMode) return;
 
       this._canvasWrapper = document.createElement('div');
       this._canvasWrapper.id = 'readmd-canvas-wrapper';

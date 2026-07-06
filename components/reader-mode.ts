@@ -251,12 +251,12 @@ export class ReaderMode {
   extractContentHtml(): string {
     try {
       const documentClone = document.cloneNode(true) as Document;
-      this.normalizeEmbeddedSvgElements(documentClone);
-      this.normalizeInlineSvgElements(documentClone);
-      this.stabilizeComplexInlineSvgElements(documentClone);
+      this.normalizeEmbeddedSvgElements(documentClone.documentElement);
+      this.normalizeInlineSvgElements(documentClone.documentElement);
+      this.stabilizeComplexInlineSvgElements(documentClone.documentElement);
 
       const reader = new Readability(documentClone, {
-        serializer: (el: Element) => el.cloneNode(true) as Element,
+        serializer: (node: Node) => node.cloneNode(true) as Element,
       });
       const article = reader.parse();
 
@@ -283,7 +283,7 @@ export class ReaderMode {
     }
 
     // Fallback
-    let article = document.querySelector('article');
+    let article: Element | null = document.querySelector('article');
     if (!article) {
       const candidates = document.querySelectorAll('main, div.content, div.post, div.article, div.entry-content');
       let maxTextLength = 0;

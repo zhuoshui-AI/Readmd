@@ -1,6 +1,6 @@
 import { ReaderMode } from '../components/reader-mode';
 import { AnnotationEngine } from '../components/annotate-engine';
-import { theme, layout, fontSize, penColor, penSize, penOpacity, penTool } from '../components/storage';
+import { theme, layout, fontSize, penColor, penSize, penOpacity, penTool, readerMode as readerModeStorage, annotateMode as annotateModeStorage } from '../components/storage';
 import '../styles/content.css';
 
 export default defineContentScript({
@@ -61,18 +61,21 @@ export default defineContentScript({
       initOverlay();
 
       switch (request.action) {
-        case 'toggleReader': {
-          readerMode.toggleReader();
-          // Initialize annotation engine when reader activates
-          if (readerMode.isReaderActive()) {
-            initAnnotationEngine();
+        case 'setReader': {
+          if (request.enabled) {
+            if (!readerMode.isReaderActive()) {
+              readerMode.toggleReader();
+              if (readerMode.isReaderActive()) {
+                initAnnotationEngine();
+              }
+            }
+            readerModeStorage.setValue(true);
+          } else {
+            readerMode.exitReader();
+            destroyAnnotationEngine();
+            readerModeStorage.setValue(false);
+            annotateModeStorage.setValue(false);
           }
-          break;
-        }
-
-        case 'exitReader': {
-          readerMode.exitReader();
-          destroyAnnotationEngine();
           break;
         }
 
@@ -97,38 +100,36 @@ export default defineContentScript({
           break;
         }
 
-        case 'toggleAnnotate': {
-          // Ensure reader mode is active
-          if (!readerMode.isReaderActive()) {
-            readerMode.toggleReader();
+        case 'setAnnotate': {
+          if (request.enabled) {
+            // ── Enable annotation mode ──
             if (!readerMode.isReaderActive()) {
-              return { status: 'error', reason: 'Cannot activate reader mode on this page' };
+              readerMode.toggleReader();
+              if (!readerMode.isReaderActive()) {
+                return { status: 'error', reason: 'Cannot activate reader mode on this page' };
+              }
+              initAnnotationEngine();
+              readerModeStorage.setValue(true);
             }
-            // Initialize annotation engine after reader activates
-            initAnnotationEngine();
-          }
 
-          // Ensure annotateEngine exists
-          if (!annotateEngine) {
-            initAnnotationEngine();
-          }
+            if (!annotateEngine) {
+              initAnnotationEngine();
+            }
 
-          if (!annotateEngine) {
-            return { status: 'error', reason: 'Annotation engine not initialized.' };
-          }
+            if (!annotateEngine) {
+              return { status: 'error', reason: 'Annotation engine not initialized.' };
+            }
 
-          if (annotateEngine.mode === 'canvas') {
-            annotateEngine.hide();
-            return { status: 'ok', annotateMode: 'off' };
-          } else {
-            // Apply stored pen settings when entering annotation mode
-            // Use values from message first, then fall back to pending, then defaults
+            if (annotateEngine.mode === 'canvas') {
+              annotateModeStorage.setValue(true);
+              return { status: 'ok', annotateMode: 'on' };
+            }
+
             const tool = request.penTool || pendingPenTool || 'pen';
             const color = request.penColor || pendingPenColor || undefined;
             const size = request.penSize ?? pendingPenSize ?? undefined;
             const opacity = request.penOpacity ?? pendingPenOpacity ?? undefined;
             annotateEngine.show(tool, color, size, opacity).then(() => {
-              // Clear pending settings after applying
               pendingPenColor = null;
               pendingPenSize = null;
               pendingPenOpacity = null;
@@ -136,7 +137,15 @@ export default defineContentScript({
             }).catch((err: Error) => {
               console.error('Failed to enter annotation mode:', err);
             });
+            annotateModeStorage.setValue(true);
             return { status: 'ok', annotateMode: 'on' };
+          } else {
+            // ── Disable annotation mode ──
+            if (annotateEngine) {
+              annotateEngine.hide();
+            }
+            annotateModeStorage.setValue(false);
+            return { status: 'ok', annotateMode: 'off' };
           }
         }
 

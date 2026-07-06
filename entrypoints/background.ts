@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 
 export default defineBackground(() => {
-  browser.runtime.onMessage.addListener((msg: any, _sender, sendResponse) => {
+  browser.runtime.onMessage.addListener((msg: any, _sender: any) => {
     if (msg.action === 'generateHTML') {
       handleGenerateHTML(msg);
     } else if (msg.action === 'generatePDF') {

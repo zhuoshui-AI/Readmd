@@ -62,3 +62,11 @@ export const penOpacity = storage.defineItem<number>('sync:penOpacity', {
 export const penTool = storage.defineItem<PenTool>('sync:penTool', {
   defaultValue: 'pen',
 });
+
+export const readerMode = storage.defineItem<boolean>('sync:readerMode', {
+  defaultValue: false,
+});
+
+export const annotateMode = storage.defineItem<boolean>('sync:annotateMode', {
+  defaultValue: false,
+});

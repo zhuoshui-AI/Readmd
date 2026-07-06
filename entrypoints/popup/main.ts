@@ -1,5 +1,5 @@
 import './style.css';
-import { theme, layout, fontSize, penColor, penSize, penOpacity, penTool } from '../../components/storage';
+import { theme, layout, fontSize, penColor, penSize, penOpacity, penTool, readerMode, annotateMode } from '../../components/storage';
 import type { Theme, Layout } from '../../components/storage';
 
 // ── Helpers ──────────────────────────────────────
@@ -26,7 +26,7 @@ async function getActiveTab() {
   return tab;
 }
 
-async function sendToContentScript(message: Record<string, unknown>) {
+async function sendToContentScript(message: Record<string, unknown>): Promise<Record<string, unknown> | null> {
   const tab = await getActiveTab();
   if (!tab?.id) return null;
 
@@ -36,7 +36,7 @@ async function sendToContentScript(message: Record<string, unknown>) {
   }
 
   try {
-    return await browser.tabs.sendMessage(tab.id, message);
+    return await browser.tabs.sendMessage(tab.id, message) as Record<string, unknown>;
   } catch {
     alert('请刷新页面后重试。');
     return null;
@@ -63,11 +63,15 @@ async function initUI() {
   const t = await theme.getValue();
   const l = await layout.getValue();
   const fz = await fontSize.getValue();
+  const rm = await readerMode.getValue();
+  const am = await annotateMode.getValue();
 
   themeSelect.value = t;
   layoutSelect.value = l;
   fontSizeInput.value = String(fz);
   fontSizeValue.textContent = `${fz}px`;
+  toggleReaderCheckbox.checked = rm;
+  toggleAnnotateCheckbox.checked = am;
 }
 
 initUI();
@@ -76,33 +80,47 @@ initUI();
 
 // Reader mode toggle
 toggleReaderCheckbox.addEventListener('change', async () => {
-  if (toggleReaderCheckbox.checked) {
-    await sendToContentScript({ action: 'toggleReader' });
-  } else {
-    await sendToContentScript({ action: 'exitReader' });
+  const checked = toggleReaderCheckbox.checked;
+  // Write intent to storage — content script will confirm after applying
+  await readerMode.setValue(checked);
+  if (!checked) {
+    // When disabling reader, also disable annotation
+    await annotateMode.setValue(false);
   }
+  await sendToContentScript({ action: 'setReader', enabled: checked });
+  window.close();
 });
 
 // Annotation mode toggle
 toggleAnnotateCheckbox.addEventListener('change', async () => {
-  const [color, size, opacity, tool] = await Promise.all([
-    penColor.getValue(),
-    penSize.getValue(),
-    penOpacity.getValue(),
-    penTool.getValue(),
-  ]);
-  const response = await sendToContentScript({
-    action: 'toggleAnnotate',
-    penColor: color,
-    penSize: size,
-    penOpacity: opacity,
-    penTool: tool,
-  });
-  if (response?.annotateMode === 'on') {
-    toggleAnnotateCheckbox.checked = true;
-  } else if (response?.annotateMode === 'off') {
-    toggleAnnotateCheckbox.checked = false;
+  const checked = toggleAnnotateCheckbox.checked;
+  // Write intent to storage — content script will confirm after applying
+  await annotateMode.setValue(checked);
+
+  if (checked) {
+    const [color, size, opacity, tool] = await Promise.all([
+      penColor.getValue(),
+      penSize.getValue(),
+      penOpacity.getValue(),
+      penTool.getValue(),
+    ]);
+    const response = await sendToContentScript({
+      action: 'setAnnotate',
+      enabled: true,
+      penColor: color,
+      penSize: size,
+      penOpacity: opacity,
+      penTool: tool,
+    });
+    // If content script failed to enable, revert
+    if (response?.annotateMode !== 'on') {
+      toggleAnnotateCheckbox.checked = false;
+      await annotateMode.setValue(false);
+    }
+  } else {
+    await sendToContentScript({ action: 'setAnnotate', enabled: false });
   }
+  window.close();
 });
 
 exportHTMLBtn.addEventListener('click', () => sendToContentScript({ action: 'exportHTML' }));
